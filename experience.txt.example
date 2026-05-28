@@ -1,0 +1,12 @@
+Interested Opportunity Engine
+
+•Built a sub-2-second real-time Voice AI telephony gateway connecting PSTN calls with LLM agents, handling concurrent WebSocket audio streams across Twilio, Vocode, and Deepgram
+•Solved a WebSocket serialization race problem in Vocode that dropped live calls by overriding audio sampling rate
+•Delivered a functional demo within 24 hours for early-stage investor presentations
+
+
+FPT Telecom
+
+•Analyzed 20 years of Vietnamese macroeconomic data using Python, Pandas, and World Bank’s API (wbapi), and extracted model inputs prioritizing the manufacturing industry
+•Trained Random Forest classifiers reaching 86% accuracy on vnstock data to power an algorithmic trading strategy, evaluated against the latest 3 months of unseen data
+•Collaborated cross-functionally with DevOps team to validate the pipeline with $4,000 live capital, accounting for 0.4% per-trade costs to ensure profitability

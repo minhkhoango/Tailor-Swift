@@ -1,0 +1,196 @@
+% bullet_pool.tex
+%
+% Extra raw material for the /tailor skill.
+% Not compiled as part of the resume. Each project has more bullets than
+% will ever fit on one page, so /tailor can pick the 1-4 strongest matches
+% per JD instead of being limited to whatever's in one_page_general.tex.
+%
+% Every fact below traces to either the project's open-source repo or to
+% the user-confirmed interview captured in the tailor plan. Numbers, dates,
+% and tech names are honest. Style: action verb + what it is + measurable
+% result + rest.
+%
+% Tag legend (for tailor scoring):
+%   [lang:*]   languages
+%   [tech:*]   frameworks / libraries / platforms
+%   [domain:*] ML / Frontend / DevOps / Backend / CV / NLP / Audio / etc.
+%   [signal:*] testing / scale / perf / users / cloud / etc.
+%
+% ALLOWED KEYWORDS  (vague resume keywords that are defensibly inferable
+% from Khoa's actual work — useful when an ATS JD demands an exact match):
+%
+%   Machine Learning, Data Analysis, Deep Learning, NLP, Information Retrieval,
+%   backend, data science, full-stack, Google Cloud, Software Testing,
+%   AI, genAI, JavaScript, Node.js, Neural Networks, Web Development, React.js, Svelte,
+%   LLM, AI agent, agentic workflow (JD-conditional only), Pandas, Scikit-learn,
+%   HTML/CSS, OOP, REST APIs, Docker, CI/CD, DevOps, Type Hints, Error Handling,
+%   Containerization, Bash, Shell Scripting, SQL, SQLite, Browser Extensions,
+%   Manifest V3, Service Workers, Web Workers, WebGPU, WASM, ONNX,
+%   Real-time Systems, Audio Processing, Telephony, WebSocket, Streaming,
+%   Speech Recognition, Text-to-Speech, Pipeline Orchestration, Prompt Engineering,
+%   Personalization, Recommendation (only when honestly mapped), Performance Optimization,
+%   Jupyter, Matplotlib, Seaborn, NumPy.
+%
+% FORBIDDEN KEYWORDS (no defensible source — never use):
+%   Java, Kubernetes, Rust, Go, .NET, Angular, Vue, Solana, Spring,
+%   large-scale, production-grade, high-throughput,
+%   RAG (LinkedIn Outreach is rank-based, not embedding-based).
+
+%==============================================================================
+% LOCAL LENS  --  Dec 2025 -- Present
+% Repo: github.com/minhkhoango/local-lens
+% Default \emph{} stack: TypeScript, PaddleOCR, React
+% Other defensible stack items: ONNX Runtime Web, Vite, Vitest, Playwright,
+%                               WebGPU, AWS, JavaScript, HTML/CSS
+%==============================================================================
+
+% [tech:Chrome,MV3] [signal:users,scale] [domain:Frontend,CV]
+\resumeItem{Shipped a Manifest V3 Chrome extension with 290+ installs, 60 weekly active users, and a 5-star average rating that performs 100\% client-side OCR from bundled VLM models}
+
+% [tech:PaddleOCR,ONNX] [domain:CV,ML] [signal:perf]
+\resumeItem{Implemented a dual-engine OCR pipeline using PP-OCRv5 for plain-text extraction (3--10 seconds) and PP-DocLayoutV3 + PP-OCRv5 for structured extraction of tables (18--47 seconds)}
+
+% [tech:Vitest,Playwright] [signal:testing,perf]
+\resumeItem{Built a Vitest + Playwright headless Chromium test suite covering inference speed and int8-vs-fp32 quantization parity, validating 830 KB of bundle savings at zero quality loss}
+
+% [tech:AWS,CloudFront,S3] [signal:cloud,uptime]
+\resumeItem{Maintained an AWS S3 + CloudFront onboarding and feedback site with 99.9\% uptime}
+
+% [tech:Vite,TypeScript] [domain:Frontend] [signal:architecture]
+\resumeItem{Designed a multi-entry Vite build for Manifest V3 that produces separate IIFE bundles for the background service worker, content script, and offscreen document, eliminating duplicate imports across 89+ commits}
+
+% [tech:WebGPU,WASM,ONNX] [domain:Frontend,ML] [signal:perf]
+\resumeItem{Delegated GPU-heavy PP-DocLayoutV3 inference to an offscreen document via WebGPU (with WASM fallback), keeping the content script's main thread responsive at 1--9 ms per warm crop}
+
+% [tech:React,TypeScript] [domain:Frontend]
+\resumeItem{Built the extension UI in React 19 and TypeScript 5.9 (90\% of codebase)}
+
+
+%==============================================================================
+% LINKEDIN OUTREACH  --  May 2026 -- Present
+% Repo: github.com/minhkhoango/linkedin-outreach
+% Default \emph{} stack: Python, Claude API, Information Retrieval
+% Other defensible stack items: PaddleOCR, pytest, JSON-RPC over stdin/stdout
+% HARD CONSTRAINT: never use the term "RAG" -- the retrieval is rank/tier-based,
+% not embedding-based. Use "ranked retrieval", "tier-based retrieval",
+% "few-shot example retrieval", or "information retrieval".
+%==============================================================================
+
+% [tech:Claude,Python] [domain:NLP,LLM,Automation] [signal:time-savings]
+\resumeItem{Developed a Claude Code skill that reduces outreach drafting time from 25 to 10 minutes using deterministic Python for resume parsing \& ranking, Claude for drafting and voice adaptation}
+
+% [tech:IR] [domain:NLP,Retrieval,Personalization]
+\resumeItem{Architected a ranked, tier-based few-shot retrieval system, giving each draft 10 same-tier examples and persistent memory across a 4-tier hierarchy}
+
+% [tech:LLM,Eval] [domain:MLOps,Self-improvement]
+\resumeItem{Implemented a self-tuning voice loop that distills every 3 new reply outcomes into voice.md updates, codifying personalization rules without retraining}
+
+% [tech:pytest,Makefile] [signal:testing]
+\resumeItem{Maintained an 11-minute pytest suite plus a manual QA script that flags cringe patterns and 300-character length violations across draft outputs}
+
+
+%==============================================================================
+% PR PILOT  --  Sep 2025 -- Oct 2025
+% Repo: github.com/minhkhoango/pr-pilot
+% Default \emph{} stack: Python, GitHub Actions, Google Gemini API
+% Other defensible stack items: Docker, Pydantic, TypedDict, REST API, YAML,
+%                               Poetry, Bash
+%
+% Origin / user research story (for JDs that emphasize entrepreneurship,
+% user-centered design, side projects, or self-directed learning):
+%   - Idea sourced from HN post: news.ycombinator.com/item?id=45371283
+%     (257 points, 416 comments).
+%   - Built proof-of-concept, then cold-emailed 100 engineers traced from
+%     that thread via Perplexity-assisted HN-username -> personal site /
+%     GitHub identity matching, with 60-95% confidence on 3 in 10 traces.
+%   - 4 of 100 replied. Feedback: commits should remain human-authored
+%     because humans hold future product/company context the LLM lacks.
+%==============================================================================
+
+% [tech:GitHub Actions,Gemini,Docker] [domain:DevOps,LLM,Automation]
+\resumeItem{Built a GitHub Action that automates pull-request review in 30 seconds by feeding git diff output into Gemini 2.5 Flash Lite and posting PR summaries via the GitHub REST API}
+
+% [tech:Docker,Poetry,Python] [domain:DevOps]
+\resumeItem{Packaged as a 29 line code Docker container (python:3.13-slim) with Poetry-managed dependencies and a 300-second execution timeout}
+
+% [domain:Entrepreneurship,UserResearch,Startup] [signal:cold-email,side-project,user-centered]
+\resumeItem{Sourced the idea from a 257-point Hacker News thread (\href{https://news.ycombinator.com/item?id=45371283}{news.ycombinator.com/item?id=45371283}, 416 comments), built the proof-of-concept, then cold-emailed 100 engineers traced via Perplexity-assisted HN-to-GitHub identity matching (60--95\% confidence on 3 in 10 traces) -- 4 replies surfaced the user-centered insight that commits should stay human-authored to preserve future product context}
+
+% [domain:Entrepreneurship,UserResearch] [signal:validation,cold-email] -- short form for ATS
+\resumeItem{Validated by cold-emailing 100 engineers traced from a 257-point Hacker News thread, surfacing feedback that commits should stay human-authored to preserve overarching context}
+
+
+%==============================================================================
+% P4-STACK  --  Oct 2025 -- Dec 2025
+% Repo: github.com/minhkhoango/p4-stack
+% Default \emph{} stack: Python, Typer, Perforce
+%==============================================================================
+
+% [tech:Python,Typer,Perforce] [domain:DevTools,CLI] [signal:time-savings]
+\resumeItem{Engineered a stacked-diff workflow CLI for Perforce that cut merge conflict resolution from 10 minutes to 5 seconds by integrating the 3-way diff3 merge algorithm}
+
+% [domain:DevTools,VCS]
+\resumeItem{Enabled engineers to split 1000+ line code changelists into reviewable diffs with automated dependency tracking}
+
+
+%==============================================================================
+% AUTOLY  --  May 2025 -- Jul 2025
+% Repo: github.com/minhkhoango/AutoLy
+% Default \emph{} stack: Python, NiceGUI, SQLite, PyMuPDF
+%==============================================================================
+
+% [tech:Python,NiceGUI,PyMuPDF] [domain:Web,Forms] [signal:time-savings]
+\resumeItem{Built an 8-step guided web application that digitizes Vietnam's official personal background form, replacing 2 to 3 hours of editing fragile Word-based templates with 20 minutes of structured, validation-driven workflow}
+
+% [tech:SQLite,Python,Auth] [domain:Backend,Web]
+\resumeItem{Persisted multi-step form state and user accounts in SQLite via Python's sqlite3, with a lightweight authentication layer}
+
+% [tech:Render] [signal:cloud,users]
+\resumeItem{Deployed on Render with zero-downtime updates and tested by 50 users}
+
+
+%==============================================================================
+% EXPERIENCE: INTERESTED OPPORTUNITY ENGINE (IOE)  --  Nov 2025
+% Repo: github.com/minhkhoango/Mastra-Voice-Gateway (PoC)
+% Honesty notes:
+%   - The Mastra agent + SQL + business logic existed before Khoa joined;
+%     do not claim credit for the agent itself.
+%   - Vocode + Twilio were the team's pre-existing choice.
+%   - Deepgram + OpenAI were Vocode-documented integrations Khoa followed.
+%   - GPT-4o-mini was Khoa's own choice for cheapest/fastest testing (under $5).
+%==============================================================================
+
+% [tech:Vocode,Twilio,PSTN,WebSocket] [domain:Audio,Real-time,Backend]
+\resumeItem{Achieved sub-2-second, real-time Voice AI telephony gateway connecting PSTN calls with LLM agents}
+
+% [tech:Vocode,Deepgram,WebSocket] [domain:Bug-fix,Audio]
+\resumeItem{Resolved a WebSocket serialization bug in Vocode that caused live call failures by overriding Enum-based audio sampling rate with an explicit 8 kHz integer}
+
+% [signal:delivery,startup]
+\resumeItem{Delivered a functional demo within 24 hours for early-stage investor presentations}
+
+% [tech:FastAPI,Python,ngrok] [domain:Backend]
+\resumeItem{Orchestrated a three-process gateway (FastAPI brain stub on port 4111, Vocode bridge on port 3000, ngrok tunnel) to integrate Twilio PSTN with the existing Mastra agent stack}
+
+% [tech:OpenAI,Deepgram,Azure] [domain:Audio]
+\resumeItem{Wired Deepgram STT and Azure Speech TTS into the Vocode bridge, defaulting to GPT-4o-mini for the lowest-latency, lowest-cost iteration loop}
+
+
+%==============================================================================
+% EXPERIENCE: FPT TELECOM  --  May 2025 -- Jul 2025
+% Honesty notes:
+%   - Khoa built the 86% Random Forest.
+%   - No SQL at FPT (CSV-based); no DB; no Airflow/cron.
+%==============================================================================
+
+% [tech:Python,Pandas,wbapi] [domain:Data,Economics]
+\resumeItem{Extracted sector-based model inputs from 20 years of Vietnamese macroeconomic trend using Python, World Bank's API (wbapi), and Pandas}
+
+% [tech:RandomForest,scikit-learn,Python] [domain:ML,Finance] [signal:accuracy]
+\resumeItem{Trained Random Forest classifiers with 86\% accuracy using vnstock API to power an algorithmic trading strategy, measured against the latest 3 months of unseen dataset}
+
+% [tech:Jupyter,Matplotlib,Seaborn] [domain:Data,Visualization]
+\resumeItem{Modeled sector-by-sector Vietnamese equity trends in Jupyter, Matplotlib, and Seaborn against 10+ macro data sources to inform feature selection for the trading model}
+
+% [signal:capital,finance]
+\resumeItem{Validated the pipeline with \$4,000 live capital, accounting for 0.4\% per-trade costs to ensure profitability}

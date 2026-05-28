@@ -1,0 +1,200 @@
+%-------------------------
+% Resume in Latex
+% Author : Jake Gutierrez
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+
+%----------FONT OPTIONS----------
+% sans-serif
+% \usepackage[sfdefault]{FiraSans}
+% \usepackage[sfdefault]{roboto}
+% \usepackage[sfdefault]{noto-sans}
+% \usepackage[default]{sourcesanspro}
+
+% serif
+% \usepackage{CormorantGaramond}
+% \usepackage{charter}
+
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubSubheading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+%%%%%%  RESUME STARTS HERE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%----------HEADING----------
+% \begin{tabular*}{\textwidth}{l@{\extracolsep{\fill}}r}
+%   \textbf{\href{http://sourabhbajaj.com/}{\Large Sourabh Bajaj}} & Email : \href{mailto:sourabh@sourabhbajaj.com}{sourabh@sourabhbajaj.com}\\
+%   \href{http://sourabhbajaj.com/}{http://www.sourabhbajaj.com} & Mobile : +1-123-456-7890 \\
+% \end{tabular*}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Khoa Ngo} \\ \vspace{1pt}       
+    \small 448-500-8115 $|$ \href{mailto:kmn24@fsu.edu}{\underline{kmn24@fsu.edu}} $ | $
+    \href{https://linkedin.com/in/khoa-ngo-7aaa54299/}{\underline{linkedin.com/in/khoa-ngo-7aaa54299}} $|$
+    \href{https://github.com/minhkhoango}{\underline{github.com/minhkhoango}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Florida State University}{(Expected) May 2028}
+      {Bachelor of Science in Computer Engineering, GPA: 3.9/4.0, Honors Program}{Tallahassee, FL}
+      \resumeItemListStart
+        \resumeItem{Relevant Coursework: Data Structures \& Algorithms, Object Oriented Programming}
+      \resumeItemListEnd
+      Awards:\vspace{-7pt}
+      \resumeItemListStart
+        \resumeItem{Gold Medalist, 1st in Division 2 of 2024 ICPC North America South Division, solving 8 of 13 problems}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Software Engineer Intern}{Nov 2025 -- Nov 2025}
+      {Interested Opportunity Engine (Early-Stage)}{Tallahassee, FL (Remote)}
+      \resumeItemListStart
+        \resumeItem{Achieved sub-2-second, real-time Voice AI telephony gateway connecting PSTN calls with LLM agents}
+        \resumeItem{Resolved a WebSocket serialization bug in Vocode that caused live call failures by overriding Enum-based audio sampling rate with an explicit 8 kHz integer}
+        \resumeItem{Delivered a functional demo within 24 hours for early-stage investor presentations }
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Data Science Intern}{May 2025 -- Jul 2025}
+      {FPT Telecom}{Hanoi, Vietnam}
+      \resumeItemListStart
+        \resumeItem{Extracted sector-based model inputs from 20 years of Vietnamese macroeconomic trend using Python, World Bank's API (wbapi), and Pandas, emphasizing manufacturing over agricultural and resource-rental industries}
+        \resumeItem{Trained Random Forest classifiers with 86\% accuracy using vnstock API to power an algorithmic trading strategy, measured against the latest 3 months of unseen dataset}
+        \resumeItem{Validated the pipeline with \$4,000 live capital, accounting for 0.4\% per-trade costs to ensure profitability}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+    {\textbf{\href{https://github.com/minhkhoango/local-lens}{\underline{Local Lens}}} $|$ \emph{TypeScript, PaddleOCR, React}}{Dec 2025 -- Present}
+    \resumeItemListStart
+      \resumeItem{Shipped a Manifest V3 Chrome extension with 290+ installs, 60 weekly active users, and a 5-star average rating that performs 100\% client-side OCR from bundled VLM models}
+      \resumeItem{Implemented a dual-engine OCR pipeline using PP-OCRv5 for plain-text extraction (3--10 seconds) and PP-DocLayoutV3 + PP-OCRv5 for structured extraction of tables (18--47 seconds)}
+      \resumeItem{Built a Vitest + Playwright headless Chromium test suite covering inference speed and int8-vs-fp32 quantization parity, validating 830 KB of bundle savings at zero quality loss}
+      \resumeItem{Maintained an AWS S3 + CloudFront onboarding and feedback site with 99.9\% uptime}
+    \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{\underline{\href{https://github.com/minhkhoango/linkedin-outreach}{LinkedIn Outreach}}} $|$ \emph{Python, Claude API, Information Retrieval}}{May 2026 -- Present}
+          \resumeItemListStart
+            \resumeItem{Developed a Claude Code skill that reduces outreach drafting time from 25 to 10 minutes through a two-plane architecture: deterministic Python for resume parsing \& ranking, Claude for drafting and voice adaptation}
+            \resumeItem{Architected a ranked, tier-based few-shot retrieval system, giving each draft 10 same-tier examples and persistent memory}
+            \resumeItem{Implemented a self-tuning voice loop that distills every 3 new outcomes into voice.md updates}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{\underline{\href{https://github.com/minhkhoango/pr-pilot}{PR Pilot}}} $|$ \emph{Python, GitHub Actions, Google Gemini API}}{Sep 2025 -- Oct 2025}
+          \resumeItemListStart
+            \resumeItem{Built a GitHub Action that automates pull-request review in 30 seconds by feeding git diff output into Gemini 2.5 Flash Lite and posting PR summaries using the GitHub REST API}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+
+%-----------TECHNICAL SKILLS-----------
+\section{Technical Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, TypeScript, SQL, C++, HTML} \\
+     \textbf{AI/ML}{: PyTorch, Scikit-learn, XGBoost, PaddleOCR, Claude API, Gemini API, RAG, Prompt Engineering} \\
+     \textbf{Frameworks \& Libraries}{: FastAPI, React, ONNX} \\
+     \textbf{Developer Tools}{: Git, Linux, Docker, AWS, Google Colab} \\
+    }}
+ \end{itemize}
+
+%-------------------------------------------
+\end{document}
