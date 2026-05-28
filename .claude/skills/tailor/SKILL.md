@@ -14,7 +14,7 @@ A personal resume-tailoring tool. Turns each `.txt` job description in `jobDescr
 - `/tailor --force` — process all JDs, overwriting any existing outputs.
 
 Triggers on natural-language phrases too: "tailor the new JDs", "tailor for nvidia", "redo the salesforce resume".
-
+/CLAU
 ## Workspace layout
 
 ```
@@ -168,6 +168,21 @@ Create `example_output/<company>/` (use `mkdir -p`). Write the composed file to 
 - Embed the rebuilt TECHNICAL SKILLS section.
 - End with `\end{document}` and a trailing newline.
 
+### Step 9b — Write `experience.txt` (plain-text mirror of EXPERIENCE)
+
+Khoa often pastes the experience section into job-application forms. Alongside `resume.tex`, write `example_output/<company>/experience.txt` derived from the same composed EXPERIENCE section. Do this **before** Step 10 — that way the file lands even if pdflatex later fails.
+
+Format (matches `experience.txt.example` at the repo root):
+
+For each `\resumeSubheading` block, in source order:
+
+1. **Company line**: the third brace argument of `\resumeSubheading` (the company string), with any trailing parenthetical qualifier stripped — drop ` (Early-Stage)`, ` (Remote)`, etc. Examples: `Interested Opportunity Engine (Early-Stage)` → `Interested Opportunity Engine`; `FPT Telecom` → `FPT Telecom`.
+2. **One blank line.**
+3. **Bullets**: one line per `\resumeItem{...}`, prefixed with `•` (U+2022, no space after the bullet). Unescape LaTeX: `\%` → `%`, `\$` → `$`, `\&` → `&`, `\#` → `#`, `\_` → `_`. Otherwise take the contents verbatim — do **not** include `\resumeItem`, braces, job titles, dates, or locations.
+4. **Two blank lines** before the next entry.
+
+End the file with a single trailing newline. Overwrite on re-run (same idempotency as `resume.tex`).
+
 ### Step 10 — Compile and 1-page verify
 
 Check `pdflatex` is available:
@@ -257,6 +272,7 @@ Print one block per JD:
     unaddressed: <JD keywords with no defensible home in the resume>
   page count: 1
   pdf: example_output/<company>/Khoa_Ngo_resume.pdf
+  experience_txt: example_output/<company>/experience.txt
   cover_letter: example_output/<company>/cover_letter.md | not required
 ```
 
@@ -271,11 +287,9 @@ After all JDs are processed, list one line per JD with its status. Flag any JDs 
 1. **No invented metrics.** Every number traces 1:1 to a source `.tex` file or to the project's repo.
 2. **No invented technologies.** Every tech name on the page exists in source.
 3. **No invented dates or companies.** Copy date ranges verbatim.
-4. **No relabeling the project's category.** XGBoost classifier is not a "ranking model" just because the JD says ranking. Reframing in JD vocabulary stops at honest reframings.
+4. **No relabeling the project's category.** Random Forest classifier is not a "ranking model" just because the JD says ranking. Reframing in JD vocabulary stops at honest reframings.
 5. **No implying scale you didn't operate at.** 290 installs is not "large-scale".
 6. **No "RAG"** for LinkedIn Outreach. Use "ranked retrieval" / "tier-based few-shot retrieval" / "information retrieval".
-7. **No XGBoost 93% claim.** That was the other intern's work.
-8. **No "Honors Program".** Dropped from the resume's voice.
 9. **No generic buzzwords**: spearheaded, leveraged, owned, world-class, 10x, best-in-class, synergize.
 10. **Default to less, not more.** When uncertain whether a fact survives a rewording, keep the original wording.
 11. **Skills additions: when in doubt, skip and note in the report.**
@@ -294,6 +308,7 @@ After all JDs are processed, list one line per JD with its status. Flag any JDs 
 | Projects (3, chronological) | Heavy rewrite per Step 4; pull bullets from `bullet_pool.tex` |
 | Technical Skills | Heavy rebuild per Step 7 |
 | `\end{document}` | Verbatim |
+| `experience.txt` | Plain-text mirror of EXPERIENCE section, written alongside `resume.tex` per Step 9b |
 | Cover letter | Only if Step 1's `cover_letter_required` is true |
 
 ---
