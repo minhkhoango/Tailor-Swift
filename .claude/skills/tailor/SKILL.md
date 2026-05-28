@@ -61,12 +61,11 @@ top_keywords:    [list, ranked by JD frequency + emphasis]
 must_haves:      [list — requirements that gate the application]
 nice_to_haves:   [list — desirable but optional]
 anti_signals:    [list — things the JD warns away from, if any]
-cover_letter_required: true | false
 ```
 
-`cover_letter_required` is `true` only when the JD explicitly asks: phrases like "cover letter required", "please include a cover letter", "tell us why", "include a 'why us' statement". Default `false`.
+A cover letter is always produced (Step 11) — no JD-side trigger needed.
 
-Surface this analysis verbatim in the per-JD report (Step 11) so Khoa can audit your reasoning.
+Surface this analysis verbatim in the per-JD report (Step 12) so Khoa can audit your reasoning.
 
 ### Step 2 — Project selection (exactly 3)
 
@@ -228,20 +227,78 @@ If `Pages: 2+` — prune loop, max 3 iterations:
 
 Never drop Education, Header, or either Experience entry during pruning.
 
-### Step 11 — Cover letter (conditional)
+### Step 11 — Cover letter (always generated)
 
-If Step 1 set `cover_letter_required: true`:
+Every JD gets a cover letter. Four sub-steps.
 
-1. Read `cover_source/cover_letter_template.md` as voice anchor. The template has the self-deprecating, specific, narrative tone to preserve. **Do not import its honesty errors** — the template was already corrected, but stay alert.
-2. Compose ~250 words across 3 short paragraphs:
-   - **Opening**: 1-line identity + hook. Template's pattern is "I'm applying for the [role] internship. I'm a junior CompE at FSU (3.9 GPA, ICPC Gold '24, 1st in Div 2 NA South), but the things I actually want to tell you about are below."
-   - **Body**: ONE project paragraph, mapped to the JD. Pick the project with the strongest JD fit (often P1 from the resume). Tell its story in voice, not in resume-bullet shape.
-   - **Closing**: "Why this company". Apply the template's own rule: *if you can't write this honestly, cut the paragraph entirely — a missing "why us" reads better than a generic one.* If Khoa hasn't given you a specific reason to want this company, write a placeholder line and flag it in the report for Khoa to fill in.
-3. Sign as "Khoa Ngo".
-4. Run the same honesty audit (Step 8). Same rules apply: no XGBoost-93% credit, no Honors, no $5,000, no large-scale, no RAG, no buzzwords.
-5. Write to `example_output/<company>/cover_letter.md`.
+**11a. Company research (sub-agent).**
 
-If `cover_letter_required: false`: skip Step 11 entirely. Note in the report: `cover_letter: not required`.
+Spawn a sub-agent via the Agent tool with `subagent_type: general-purpose`. The sub-agent uses WebFetch to visit the company's primary website and extract impressive concrete numbers and notable specifics.
+
+- **URL derivation**: lowercase the JD filename stem and try `https://www.<stem>.com` first (e.g. `Skydio.txt` → `skydio.com`). If the JD body contains a different official URL (or the stem is ambiguous, e.g. `OxfamInternational` → `oxfam.org`), prefer that.
+- **Sub-agent prompt** (self-contained): visit the homepage; if useful, follow 1–2 obvious links from {About, Customers, Investors, Press, Newsroom, Impact}. Pull **impressive concrete numbers** (counts, scale facts, rankings, deployment figures) and **notable specifics** (named products, programs, customers, missions). Return exactly this shape:
+  ```
+  company: <name>
+  url_used: <url>
+  impressive_numbers:
+    - "<fact with a number>"
+    ...
+  notable_specifics:
+    - "<product / program / customer / mission>"
+    ...
+  ```
+- Bar for "impressive" — Khoa's examples: "serving 74,000+ businesses", "100M+ monthly users", "Electron is the 2nd most frequently launched U.S. rocket". Specificity plus a number.
+- If the site has nothing usable (small/private company, sparse site), the sub-agent says so explicitly. **Do not fabricate.**
+
+**11b. Compose `cover_letter.md`.**
+
+Read `cover_source/cover_letter_template.md` as the voice anchor — self-deprecating, specific, narrative; not corporate. Then write the file in this exact shape:
+
+```markdown
+## Company insights
+[<insight 1>, <insight 2>, <insight 3>, ...]
+
+---
+
+<Today's date, e.g. "May 27, 2026">
+
+<Company name> Recruiting Team
+
+Dear <Company> team,
+
+<opening paragraph — identity hook from template>
+
+<body paragraph — one project mapped to the JD>
+
+<closing paragraph — names at least one specific insight by its actual value>
+
+Sincerely,
+Khoa Ngo
+```
+
+Rules:
+
+- The `[ ... ]` list under `## Company insights` is a compact summary of what the sub-agent returned — short phrases, comma-separated. This section is for Khoa's audit; the rebuild script strips it before PDF conversion.
+- **Opening**: 1-line identity + hook. Template's pattern: "I'm a junior CompE at FSU (3.9 GPA, ICPC Gold '24, 1st in Div 2 NA South), but the things I actually want to tell you about are below."
+- **Body**: ONE project paragraph, mapped to the JD. Pick the project with the strongest JD fit (often P1 from the resume). Tell its story in voice, not in resume-bullet shape.
+- **Closing**: "Why this company". Must name at least one item from `impressive_numbers` or `notable_specifics` by its actual value (e.g. "the 74,000+ businesses already on Skydio", not "your impressive customer base"). 2–3 sentences, in voice.
+- **If the sub-agent came up empty**: keep the `## Company insights` section with `[none found from <url>]`, and write the closing as a one-line `[TODO: Khoa — fill in why this company]` placeholder. Flag it in the report. Do NOT write a generic "I'm excited about your innovative mission" closing.
+- **Date format**: "Month D, YYYY" using today's actual date.
+- **Recipient line**: `<Company> Recruiting Team`. If the JD body names a specific team, hiring manager, or department, use that instead.
+
+**11c. Honesty audit.**
+
+Run the Step 8 rules. Add one closing-specific rule: every company-fact in the closing must trace 1:1 to what the sub-agent returned. No inflating "74,000+" to "75,000+", no merging two facts into a vaguer one. Every item inside `[ ... ]` must match what the sub-agent returned.
+
+**11d. Write and compile to PDF.**
+
+Write the markdown to `example_output/<company>/cover_letter.md`. Then compile:
+
+```bash
+python rebuild_cover_letter.py <company>
+```
+
+This produces `example_output/<company>/Khoa_Ngo_cover_letter.pdf`. The script strips the `## Company insights` section, then runs pandoc + pdflatex. If `pandoc` or `pdflatex` is missing, the script prints the install hint and exits non-zero — surface that to Khoa rather than papering over it.
 
 ### Step 12 — Per-JD report
 
@@ -254,7 +311,6 @@ Print one block per JD:
     top_keywords: <...>
     must_haves: <...>
     anti_signals: <...>
-    cover_letter_required: <bool>
   projects: <P1>, <P2>, <P3>   (chronological, most recent first)
   project bullet selections (per project): <which pool bullets were used + why>
   bullets dropped during pruning: <list> | none
@@ -273,7 +329,9 @@ Print one block per JD:
   page count: 1
   pdf: example_output/<company>/Khoa_Ngo_resume.pdf
   experience_txt: example_output/<company>/experience.txt
-  cover_letter: example_output/<company>/cover_letter.md | not required
+  company research: <url_used> — N impressive numbers, M notable specifics | none found, placeholder closing flagged
+  cover_letter: example_output/<company>/cover_letter.md
+  cover_letter_pdf: example_output/<company>/Khoa_Ngo_cover_letter.pdf
 ```
 
 ### Step 13 — Final summary
@@ -309,7 +367,7 @@ After all JDs are processed, list one line per JD with its status. Flag any JDs 
 | Technical Skills | Heavy rebuild per Step 7 |
 | `\end{document}` | Verbatim |
 | `experience.txt` | Plain-text mirror of EXPERIENCE section, written alongside `resume.tex` per Step 9b |
-| Cover letter | Only if Step 1's `cover_letter_required` is true |
+| Cover letter | Always generated; closing personalized via sub-agent web research; compiled to PDF via `rebuild_cover_letter.py` |
 
 ---
 
