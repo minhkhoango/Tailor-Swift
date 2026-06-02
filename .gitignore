@@ -1,6 +1,8 @@
 # Python / build
 .venv
 .vscode
+__pycache__/
+*.pyc
 
 # LaTeX build artifacts
 *.aux

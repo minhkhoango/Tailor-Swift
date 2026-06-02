@@ -38,6 +38,9 @@ example_output/                 # generated, one folder per company
     cover_letter.md             # cover letter (when applicable)
 rebuild_resumes.py              # recompile every example_output/*/resume.tex
 rebuild_cover_letter.py         # compile a company's cover_letter.md to PDF
+check_resume_fit.py             # deterministic page-fullness + bullet-spillover checker
+test_check_resume_fit.py        # unit tests for the checker
+requirements.txt                # pip deps (pdfplumber) for the checker
 .claude/skills/tailor/          # the /tailor agent skill definition
 ```
 
@@ -57,11 +60,20 @@ python rebuild_resumes.py              # all resumes
 python rebuild_cover_letter.py <Company>   # one cover letter
 ```
 
+To check that a compiled resume is reasonably full (85–95% of the page) and has no bullet
+whose last wrapped line dangles ≤4 words (run automatically inside `/tailor`):
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # one-time
+.venv/bin/python check_resume_fit.py <Company>    # or --all
+.venv/bin/python -m unittest test_check_resume_fit   # run the tests
+```
+
 ## Requirements
 
 - `pdflatex` (TeX Live: `texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra`)
 - `pandoc` (for cover-letter PDF rendering)
-- Python 3
+- Python 3, plus `pdfplumber` for `check_resume_fit.py` (`pip install -r requirements.txt`)
 
 The full per-step pipeline and the honesty rules live in
 `.claude/skills/tailor/SKILL.md`.
