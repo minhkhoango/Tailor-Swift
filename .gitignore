@@ -1,4 +1,31 @@
-jobDescription
-example_output
+# Python / build
 .venv
 .vscode
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+missfont.log
+
+# Sandbox-masked home dotfiles (not part of this project)
+.bashrc
+.bash_profile
+.profile
+.zshrc
+.zprofile
+.gitconfig
+.gitmodules
+.mcp.json
+.ripgreprc
+.idea
+.claude/agents
+.claude/commands
+.claude/hooks
+.claude/settings.json

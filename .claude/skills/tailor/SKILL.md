@@ -85,7 +85,7 @@ Local Lens vs. LinkedIn Outreach are both "Present" — tiebreak by JD relevance
 
 For each chosen project:
 
-**a. Pick bullets from the pool.** Read `bullet_pool.tex` for that project. Pick 1–4 bullets that most directly map to JD keywords. **Variable bullet count is allowed** — a project might show 2 strong bullets; another might show 4.
+**a. Pick bullets from the pool.** Read `bullet_pool.tex` for that project. Pick 1–45[4 bullets that most directly map to JD keywords. **Variable bullet count is allowed** — a project might show 2 strong bullets; another might show 4.
 
 **b. Reorder bullets relevance-first.** The most JD-relevant bullet leads.
 
@@ -150,9 +150,8 @@ Reject your own draft if any of these appear:
 4. **"Honors"** or **"Honors Program"**.
 5. **"Large-scale"**, **"production-grade"**, **"high-throughput"**. None of Khoa's work operates at that scale.
 6. **Generic resume buzzwords**: spearheaded, leveraged, owned, world-class, 10x, best-in-class, synergize.
-7. **"$5,000"** for the FPT capital validation — must be "$4,000".
-8. **Tech Khoa hasn't touched**: Java, Kubernetes, Rust, Go, .NET, Angular, Vue, Solana, Spring (only if a defensible source emerges).
-9. **"Agentic"** unless the JD itself uses the term. If JD uses it, you may use it.
+7. **Tech Khoa hasn't touched**: Java, Kubernetes, Rust, Go, .NET, Angular, Vue, Solana, Spring (only if a defensible source emerges).
+8. **"Agentic"** unless the JD itself uses the term. If JD uses it, you may use it.
 
 If the audit fails: fix and re-audit. Surface every triggered rule in the per-JD report under "honesty audit corrections".
 

@@ -1,0 +1,55 @@
+https://www.grantthornton.com/
+Requirements
+General business knowledge with a strong preference for Accounting Major or Minor.
+Minimum overall and major GPA of 3.0/4.0 preferred.
+Familiarity with small-automation & reporting tools (e.g. Alteryx, MSFT Power Platform, Tableau).
+Familiarity with system infrastructure and application design.
+Database architecture; creating queries and tables using, e.g., Oracle or SQL server.
+Project management/project life-cycle knowledge and experience with systems/business analysis.
+Technical/advanced writing skills.
+Demonstrated project management skillset including project planning and time management.
+Ability to work efficiently and effectively in a complex team environment.
+Ability to travel on short notice and work additional hours as necessary.
+Must be authorized to work in the U.S. without the need for employment-based visa sponsorship now or in the future. No visa sponsorship is available for this position.
+Responsibilities
+Travel on short notice and work additional hours as necessary.
+Work effectively in a geographically distributed team.
+Desired Qualifications
+Experience with web development techniques.
+Experience working with back end databases and database management systems.
+Experience with Microsoft Fabric or Google Cloud technologies, including their respective data and analytics tools
+Knowledge of multiple ERP systems and databases (e.g. SAP, Oracle, MSFT).
+Transaction tax engine experience (e.g., Vertex, Thomson Reuters, Avalara).
+Familiarity with Artificial Intelligence/ Machine Learning, Robotics Process Automation and Blockchain and their impact on the regulatory environment.
+Programming related coursework.
+Java, C++ or .NET (C# or VB), R, Python proficiency.
+Intellectually curious.
+Strong attention to detail and problem-solving skills.
+Dynamic thinker who challenges conventional wisdom.
+Willingness to learn and adopt new technologies.
+Ability to function within a geographically-distributed team.
+Good listening skills and the ability to grasp business trends and needs.
+Accounting degree with Data Science, Analytics, or Information Systems minor.
+Information Systems or Computer Science degree with Accounting or Business minor.
+Data Science or Analytics degree with Accounting or Business minor.
+Software/system engineering.
+
+High Priority Keywords:
+Python
+C++
+SQL
+Google Cloud
+cloud technologies
+
+
+Low Priority Keywords
+back end
+data science
+machine learning
+ai
+automation tools
+business analysis
+database
+project management
+compliance
+web development
