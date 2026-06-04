@@ -88,9 +88,9 @@ Local Lens vs. LinkedIn Outreach are both "Present" — tiebreak by JD relevance
 
 For each chosen project:
 
-**a. Pick bullets from the pool.** Read `bullet_pool.tex` for that project. Pick 1–45[4 bullets that most directly map to JD keywords. **Variable bullet count is allowed** — a project might show 2 strong bullets; another might show 4.
+**a. Pick bullets from the pool.** Read `bullet_pool.tex` for that project. Khoa's resume runs **sparse**, so pick **as many defensibly-relevant bullets as the page can hold — up to 5** (Local Lens has 5 in the pool). **Prefer filling the page over dropping bullets.** Variable count is allowed (a project might offer only 2 strong bullets), but lean toward *more*. The deterministic fit checker in Step 10 decides how many actually fit — start generous and let it prune.
 
-**b. Reorder bullets relevance-first.** The most JD-relevant bullet leads.
+**b. Reorder bullets — lead bullet is pinned.** The **first `\resumeItem` in that project's `bullet_pool.tex` block is the project-definition bullet ("what this project is") — it always leads and is always kept.** You may *slightly* reword it for JD vocabulary, but it must stay the what-is-this-project bullet. Order the **remaining** bullets relevance-first (most JD-relevant next).
 
 **c. Heavy-rewrite each kept bullet.** You may:
 - Swap verbs ("automates" → "orchestrates" if JD uses "orchestration").
@@ -184,7 +184,7 @@ For each `\resumeSubheading` block, in source order:
 
 End the file with a single trailing newline. Overwrite on re-run (same idempotency as `resume.tex`).
 
-### Step 10 — Compile and 1-page verify
+### Step 10 — Compile, then run the deterministic fit check
 
 Check `pdflatex` is available:
 
@@ -194,40 +194,39 @@ command -v pdflatex || echo "pdflatex MISSING — install: sudo apt update && su
 
 If missing, stop and ask Khoa to install.
 
+**One-time setup** (skip if `.venv/` already exists): the fit checker needs `pdfplumber`.
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+```
+
 Compile:
 
 ```bash
 cd example_output/<company> && pdflatex -interaction=nonstopmode -jobname=Khoa_Ngo_resume resume.tex
 ```
 
-Check page count:
+**Deterministic fit check.** From the repo root, run:
 
 ```bash
-pdfinfo example_output/<company>/Khoa_Ngo_resume.pdf | grep '^Pages:'
+.venv/bin/python check_resume_fit.py <company>
 ```
 
-If `Pages: 1` — run the **tight-line polish** below, then clean: `rm -f example_output/<company>/Khoa_Ngo_resume.{aux,log,out,fls,fdb_latexmk}`.
+This reads the rendered word boxes out of the PDF and prints, deterministically: `page_count`, `fullness` (target **0.85–0.95** of the printable height), a per-bullet line with an `OK` / `FLAG` / `SKIP` tag (`FLAG` = last rendered line has **≤4 words**), a `spillover_flags` count, and a one-word `verdict`. Exit `0` = OK; `1` = actionable (UNDERFULL / OVERFULL / SPILLOVER / MULTIPAGE); `2` = tooling/usage error. If exit `2` says `pdfplumber not installed`, run the setup command above. (The script only **detects** — it never edits the `.tex`. This trimming/filling loop runs **only during `/tailor`**; the editor save-hook still just rebuilds the PDF, no trimming.)
 
-**Tight-line polish (only when `Pages: 1`):**
+**Act on the `verdict` in a bounded iterate-then-report loop (cap ~3 passes total, then report final state even if not perfect):**
 
-Open the compiled PDF (or inspect the `.log` overfull/underfull markers) and scan every project/experience bullet. If a bullet wraps such that the last line of that bullet contains **4 or fewer words**, attempt to trim:
+- **`SPILLOVER`** — for each bullet tagged `FLAG`, trim **filler only**: drop connectives ("that", "which", "in order to", "various", "really", "simply"), redundant articles, weak qualifiers; tighten verb phrases ("was responsible for designing" → "designed"). **Preserve every verbatim JD keyword** the bullet was tailored to hit and **every locked fact** (numbers, dates, tech names, company names — Step 8 rules). Recompile and re-run the checker. Max 2 trim attempts per bullet; if the flag survives, **leave the bullet as-is** — a ≤4-word spillover beats a fact mutation or coverage loss. Bullets tagged `SKIP` (low match confidence) are **not** trim targets.
+- **`UNDERFULL`** (fullness < 0.85) — add coverage: promote one more JD-relevant bullet from `bullet_pool.tex` into the lowest-density project (or restore a bullet pruned earlier). Prefer adding a **whole, fact-locked pool bullet** over padding an existing one. Recompile and re-check.
+- **`OVERFULL`** (fullness > 0.95) or **`MULTIPAGE`** — prune loop, max 3 iterations:
+  - **Iteration 1**: drop the JD-lowest-scoring bullet from the JD-lowest-scoring project. Recompile.
+  - **Iteration 2**: drop the entire JD-lowest-scoring project (leaving 2). Recompile. Re-verify the remaining 2 are still chronological, most recent first.
+  - **Iteration 3**: drop the JD-lowest-scoring bullet from the now-lowest-scoring project. Recompile.
+  - After 3 failed iterations: stop, report the overflow, leave the `.tex` for Khoa.
+  Never drop Education, Header, or either Experience entry during pruning.
+- **`OK`** — done. Clean aux files: `rm -f example_output/<company>/Khoa_Ngo_resume.{aux,log,out,fls,fdb_latexmk}`.
 
-- **Trim filler only.** Drop connective words ("that", "which", "in order to", "various", "really", "simply"), redundant articles, and weak qualifiers. Tighten verb phrases ("was responsible for designing" → "designed").
-- **Preserve every verbatim JD keyword** that the bullet was tailored to hit — those are the whole point of customization. If trimming a word would remove a JD keyword string, do not trim that word.
-- **Preserve every locked fact**: numbers, percentages, dates, tech names, company names — same rules as the Step 8 honesty audit.
-- After trimming, recompile and re-check. If the spillover survives, **leave the bullet as-is** — do not reword aggressively, do not swap bullets from the pool, do not drop the bullet. A 4-word spillover is better than a fact mutation or a coverage loss.
-- Max 2 trim attempts per bullet. Then move on.
-
-Surface every trim in the per-JD report (Step 12) under the `tight-line trims:` line.
-
-If `Pages: 2+` — prune loop, max 3 iterations:
-
-- **Iteration 1**: drop the JD-lowest-scoring bullet from the JD-lowest-scoring project. Recompile.
-- **Iteration 2**: drop the entire JD-lowest-scoring project (leaving 2). Recompile. Re-verify the remaining 2 are still chronological, most recent first.
-- **Iteration 3**: drop the JD-lowest-scoring bullet from the now-lowest-scoring project. Recompile.
-- After 3 failed iterations: stop, report the overflow, leave the `.tex` for Khoa.
-
-Never drop Education, Header, or either Experience entry during pruning.
+Surface every trim, coverage add, and the final verdict/fullness in the per-JD report (Step 12).
 
 ### Step 11 — Cover letter (always generated)
 
@@ -386,7 +385,9 @@ Echo the highlights of `reasoning.md` to the terminal (the file is the source of
   projects: <P1>, <P2>, <P3>   (chronological, most recent first)
   project bullet selections (per project): <which pool bullets were used + why>
   bullets dropped during pruning: <list> | none
+  fit check: verdict=<OK|SPILLOVER|UNDERFULL|OVERFULL|MULTIPAGE>  fullness=<0.NN>
   tight-line trims: <bullet → words removed> | none
+  coverage adds (if underfull): <bullet added> | none
   tech-stack \emph{} changes (per project): <reorders / prunes / additions>
   experience reframes:
     IOE: <list of wording changes>

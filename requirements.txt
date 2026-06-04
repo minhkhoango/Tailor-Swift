@@ -1,0 +1,8 @@
+# Runtime deps for the resume-tailoring helper scripts.
+# Install into a local venv:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# pdfplumber gives per-word bounding boxes + page size in pure Python,
+# which check_resume_fit.py uses to measure page fullness and detect
+# short ("spillover") last lines deterministically.
+pdfplumber>=0.11
