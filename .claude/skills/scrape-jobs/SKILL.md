@@ -1,6 +1,6 @@
 ---
 name: scrape-jobs
-description: Scrape a filtered simplify.jobs list into jobDescription/<Company>.txt (verbatim Requirements + Responsibilities), ready for /tailor. Use for "/scrape-jobs", "scrape the simplify jobs", "pull the new JDs from simplify", "grab job descriptions".
+description: Scrape a filtered simplify.jobs list into jobDescription/<Company>_<Role>.txt (verbatim Requirements + Responsibilities), ready for /tailor. Use for "/scrape-jobs", "scrape the simplify jobs", "pull the new JDs from simplify", "grab job descriptions".
 ---
 
 # Scrape Jobs (simplify.jobs → jobDescription/)
@@ -18,7 +18,8 @@ This is the upstream feeder for the tailor pipeline: **scrape → `jobDescriptio
 3. **Replays that query with pagination** to collect the first `--limit` job IDs.
 4. For each job, GETs `api.simplify.jobs/v2/job-posting/:id/<id>/company` and reads the
    structured `requirements` / `responsibilities` arrays.
-5. Writes `jobDescription/<Company>.txt`. Same input → same file, every time.
+5. Writes `jobDescription/<Company>_<Role>.txt`, de-duplicating identical postings.
+   Same input → same files, every time.
 
 The active filters are **printed at the start of every run** (transparency), and a machine
 manifest of the run lands in `.claude/skills/scrape-jobs/last_run.json`.
@@ -60,9 +61,15 @@ Requirements
 Responsibilities
 <one responsibility per line>
 ```
-- One file per company: `Tesla.txt`. Multiple roles at the same company in one run →
-  `Tesla.txt`, `Tesla (2).txt`, …
+- **Filename:** `<Company>_<Role>.txt`, descriptive, underscored — e.g.
+  `Tesla_Industrial_Design_Studio.txt`, `Tesla_Software_Engineer_Vehicle_UI_Development.txt`.
+  Role is the cleaned title (intern/season/year noise dropped, repeated words collapsed,
+  capped to keep it readable). Multiple roles at one company are kept — that's expected.
+- **Duplicate removal:** simplify sometimes lists the same posting twice. A job is dropped as
+  a duplicate only when **both** its Requirements+Responsibilities **and** its full description
+  are identical (hash) to one already saved this run.
 - If a job has no parsed lists, the file falls back to a `Description` section (stripped HTML).
+- The run over-fetches a candidate pool so dedup/skips still yield up to `--limit` files.
 
 ## Notes
 - **`excludeApplied`** only takes effect when logged in (simplify computes it server-side).
@@ -73,7 +80,7 @@ Responsibilities
 
 ## Files
 ```
-jobDescription/<Company>.txt            output, one per job (also /tailor's input)
+jobDescription/<Company>_<Role>.txt     output, one per job (also /tailor's input)
 .claude/skills/scrape-jobs/
   SKILL.md                              this file
   scripts/scrape_jobs.py                the scraper (Playwright + simplify JSON APIs)

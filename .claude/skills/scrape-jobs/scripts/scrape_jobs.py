@@ -22,6 +22,7 @@ Run OUTSIDE the Claude sandbox (needs network + the WSLg display):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -98,13 +99,6 @@ def print_filters(url: str) -> list[tuple[str, list[str]]]:
 
 
 # ----- small helpers -----------------------------------------------------------
-def sanitize_filename(name: str) -> str:
-    name = (name or "").strip()
-    name = re.sub(r"[\\/:*?\"<>|]+", " ", name)
-    name = re.sub(r"\s+", " ", name).strip().rstrip(".")
-    return name or "Unknown"
-
-
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"[ \t]+")
 
@@ -220,7 +214,7 @@ def fetch_list(
             break
         page_n += 1
     if found is not None:
-        log(f"Filtered list: {found} jobs match; taking first {min(limit, len(docs))}.")
+        log(f"Filtered list: {found} jobs match; pulled {len(docs[:limit])} candidates.")
     return docs[:limit]
 
 
@@ -264,6 +258,61 @@ def format_job_text(detail: dict[str, Any]) -> str:
         if body:
             sections.append("Description\n" + body)
     return ("\n".join(sections)).strip() + "\n"
+
+
+# ----- naming + duplicate detection --------------------------------------------
+# Words stripped from the role part of a filename (they add no signal).
+ROLE_NOISE = {
+    "intern", "interns", "internship", "internships", "coop", "co", "op",
+    "summer", "fall", "spring", "winter", "program", "months", "month",
+    "the", "a", "an", "of", "for", "and", "to", "in",
+}
+_YEAR_RE = re.compile(r"^(19|20)\d{2}$")
+
+
+def _word_slug(text: str, max_words: int) -> str:
+    """Lowercase-dedup words (drop noise/years), keep order, join with '_'."""
+    words: list[str] = []
+    seen: set[str] = set()
+    for raw in re.split(r"[^A-Za-z0-9]+", text):
+        if not raw:
+            continue
+        key = raw.lower()
+        if key in ROLE_NOISE or _YEAR_RE.match(key) or key in seen:
+            continue
+        seen.add(key)
+        words.append(raw)
+        if len(words) >= max_words:
+            break
+    return "_".join(words)
+
+
+def make_filename(company: str, title: str) -> str:
+    """Descriptive `<Company>_<Role>` stem, e.g. Tesla_Industrial_Design_Studio."""
+    comp = _word_slug(company, max_words=4) or "Company"
+    role = _word_slug(title, max_words=7)
+    stem = f"{comp}_{role}".strip("_") if role else comp
+    return stem or "job"
+
+
+_FP_WS = re.compile(r"\s+")
+
+
+def content_fingerprint(detail: dict[str, Any]) -> str:
+    """Hash of (Requirements+Responsibilities) AND the full description.
+
+    Two postings are duplicates only when BOTH match — simplify occasionally
+    lists the same job twice; we keep just one copy.
+    """
+    summary = "\n".join(
+        clean_lines(detail.get("requirements")) + clean_lines(detail.get("responsibilities"))
+    )
+    full = html_to_text(str(detail.get("description") or ""))
+
+    def norm(t: str) -> str:
+        return _FP_WS.sub(" ", t).strip().lower()
+
+    return hashlib.sha1(f"{norm(summary)}||{norm(full)}".encode("utf-8")).hexdigest()
 
 
 # ----- discover (debugging) ----------------------------------------------------
@@ -322,6 +371,10 @@ def scrape(ctx: BrowserContext, page: Page, args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Open simplify FIRST: the user needs a page to sign into, and the auth JWT
+    # lives on this origin (so login detection can see it).
+    log("Opening simplify.jobs in the window ...")
+    page.goto(args.url, wait_until="domcontentloaded", timeout=60000)
     wait_for_login(page, 0 if args.no_login else args.login_wait)
 
     log("Capturing the filtered job-list query ...")
@@ -331,61 +384,71 @@ def scrape(ctx: BrowserContext, page: Page, args: argparse.Namespace) -> int:
     excl = ":!=" in str(search0.get("filter_by", ""))
     log(f"  excludeApplied applied to query: {'yes' if excl else 'no (full filtered list)'}")
 
-    docs = fetch_list(ctx, ts_url, search0, args.limit)
+    # Over-fetch a candidate pool so duplicate/skip removals don't shrink the result.
+    pool_size = min(max(args.limit * 3, args.limit + 20), 300)
+    docs = fetch_list(ctx, ts_url, search0, pool_size)
     if not docs:
         log("No jobs returned from the list query.")
         return 1
 
     pre_existing = {p.name for p in out_dir.glob("*.txt")}  # present before this run
-    run_counts: dict[str, int] = {}                          # company -> times seen this run
+    seen_fps: set[str] = set()                               # content de-dup within run
+    used_names: set[str] = set()                             # avoid clobber within run
     written: list[dict[str, str]] = []
-    skipped = 0
-    for i, doc in enumerate(docs, 1):
+    n_dup = n_exist = n_fail = 0
+
+    for doc in docs:
+        if len(written) >= args.limit:
+            break
         job_id = str(doc.get("id") or "")
-        company = sanitize_filename(str(doc.get("company_name") or "Unknown"))
+        company = (str(doc.get("company_name") or "").strip() or "Unknown")
         title = str(doc.get("title") or "").strip()
         if not job_id:
-            log(f"[{i}/{len(docs)}] {company}: missing job id — skipped.")
-            skipped += 1
-            continue
-
-        first_time = run_counts.get(company, 0) == 0
-        if first_time and f"{company}.txt" in pre_existing and not args.force:
-            log(f"[{i}/{len(docs)}] {company}: exists from earlier run — skipped (use --force).")
-            skipped += 1
             continue
 
         detail = fetch_detail(ctx, job_id)
         if not detail:
-            log(f"[{i}/{len(docs)}] {company}: detail fetch failed — skipped.")
-            skipped += 1
+            n_fail += 1
+            log(f"  {company} — {title[:55]}: detail fetch failed.")
             continue
 
-        run_counts[company] = run_counts.get(company, 0) + 1
-        if run_counts[company] == 1:
-            path = out_dir / f"{company}.txt"            # first this run -> canonical
-        else:
-            n = run_counts[company]                       # 2nd+ role at same company
-            while (out_dir / f"{company} ({n}).txt").exists():
-                n += 1
-            path = out_dir / f"{company} ({n}).txt"
+        fp = content_fingerprint(detail)
+        if fp in seen_fps:
+            n_dup += 1
+            log(f"  {company} — {title[:55]}: duplicate posting — skipped.")
+            continue
+        seen_fps.add(fp)
 
-        path.write_text(format_job_text(detail), encoding="utf-8")
+        stem = make_filename(company, title)
+        fname = f"{stem}.txt"
+        if fname in pre_existing and not args.force:
+            n_exist += 1
+            log(f"  {company} — {title[:55]}: {fname} exists — skipped (use --force).")
+            continue
+        n = 2  # distinct role whose stem collides with one already written this run
+        while fname in used_names:
+            fname = f"{stem}_{n}.txt"
+            n += 1
+        used_names.add(fname)
+
+        (out_dir / fname).write_text(format_job_text(detail), encoding="utf-8")
         nreq = len(clean_lines(detail.get("requirements")))
         nres = len(clean_lines(detail.get("responsibilities")))
-        log(f"[{i}/{len(docs)}] {company} — {title[:60]}  →  {path.name}  ({nreq} req, {nres} resp)")
-        written.append({"company": company, "title": title, "id": job_id, "file": path.name})
+        log(f"[{len(written) + 1}/{args.limit}] {company} — {title[:48]}  →  {fname}  ({nreq} req, {nres} resp)")
+        written.append({"company": company, "title": title, "id": job_id, "file": fname})
 
     # transparent run manifest (kept out of jobDescription/ so /tailor ignores it)
     (SKILL_DIR / "last_run.json").write_text(
         json.dumps(
-            {"url": args.url, "filters": decode_filters(args.url),
-             "limit": args.limit, "written": written, "skipped": skipped},
+            {"url": args.url, "filters": decode_filters(args.url), "limit": args.limit,
+             "excludeApplied": excl, "written": written,
+             "skipped": {"duplicate": n_dup, "exists": n_exist, "detail_failed": n_fail}},
             indent=2,
         ),
         encoding="utf-8",
     )
-    log(f"\nDone: {len(written)} written, {skipped} skipped → {out_dir}/")
+    log(f"\nDone: {len(written)} written; skipped {n_dup} duplicate, "
+        f"{n_exist} existing, {n_fail} failed → {out_dir}/")
     return 0
 
 
@@ -409,8 +472,8 @@ def main() -> int:
             if args.discover:
                 buf = ApiBuffer()
                 ctx.on("response", buf.on_response)
-                wait_for_login(page, 0 if args.no_login else args.login_wait)
                 page.goto(args.url, wait_until="domcontentloaded", timeout=60000)
+                wait_for_login(page, 0 if args.no_login else args.login_wait)
                 page.wait_for_timeout(4000)
                 discover(page, buf)
                 return 0
