@@ -1,0 +1,13 @@
+{
+  "typeCheckingMode": "strict",
+  "venvPath": ".",
+  "venv": ".venv",
+  "reportMissingTypeStubs": false,
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "output",
+    "**/node_modules",
+    "**/__pycache__",
+  ]
+}

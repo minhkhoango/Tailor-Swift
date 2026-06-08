@@ -1,452 +1,74 @@
 ---
 name: tailor
-description: Tailor Khoa's master resume into 1-page company-specific resumes (and optionally a cover letter) from .txt job descriptions. Use when the user runs /tailor (with or without company names) or says "tailor the new JDs", "tailor for <company>". Reads jobDescription/*.txt, runs a structured JD analysis, picks 3 projects from a fixed pool, heavy-rewrites bullets in JD vocabulary with facts locked, rebuilds the skills section, compiles with pdflatex, verifies single-page output, and writes a cover letter only when the JD asks for one. Never invents facts.
+description: Tailor Khoa's master resume into a packed 1-page company-specific resume (and optionally a cover letter) from a .txt job description. Use for "/tailor", "tailor the new JDs", "tailor for <company>", "redo the <company> resume".
 ---
 
 # Resume Tailor
 
-A personal resume-tailoring tool. Turns each `.txt` job description in `jobDescription/` into a 1-page tailored resume — and, when the JD asks for one, a matching cover letter. Strict honesty rules: every metric, date, and tech name must trace to source files. Heavy rewriting of wording is allowed; invention is not.
+Turn each `.txt` job description in `jobDescription/` into a **full** 1-page resume by
+SELECTING from one master pool and LIGHTLY rewording for the JD's keywords. Facts are
+locked; wording barely moves.
+
+## Golden rules
+1. **Select, don't rewrite.** Pick whole projects and keep their bullets faithful — swap in
+   exact JD keywords or lightly rephrase, nothing more. Never heavy-rewrite or shorten a bullet.
+2. **Pack the page.** Output is strictly 1 page, filled to **0.95–1.0**. Empty space at the
+   bottom is the failure to avoid.
+3. **Honesty is absolute.** Every number/date/tech/company traces 1:1 to source. The project
+   pool is closed — never invent projects. See `references/honesty-rules.md`.
 
 ## Commands
+- `/tailor` — process every `jobDescription/*.txt` with no matching `output/<stem>/` yet (idempotent).
+- `/tailor <prefix> [...]` — process the named JD(s); case-insensitive prefix, overwrites existing output.
+- `/tailor --cover <prefix>` — also write a cover letter (off by default).
+- `/tailor --force` — reprocess all JDs.
 
-- `/tailor` — process every `.txt` in `jobDescription/` that does NOT yet have a matching `example_output/<stem>/` directory. Idempotent: re-running skips already-built companies.
-- `/tailor <company> [<company2> ...]` — process only the named JD file(s), overwriting any existing output.
-- `/tailor --force` — process all JDs, overwriting any existing outputs.
-
-Triggers on natural-language phrases too: "tailor the new JDs", "tailor for nvidia", "redo the salesforce resume".
-/CLAU
-## Workspace layout
-
+## Files
 ```
-Resume/
-  jobDescription/
-    <company>.txt              # input JDs
-  source/
-    one_page_general.tex       # master resume (preamble + content)
-    bullet_pool.tex            # enriched per-project bullets + ALLOWED/FORBIDDEN keyword list
-  cover_source/
-    cover_letter_template.md   # cover-letter voice anchor (use only if JD asks for one)
-  example_output/
-    <company>/
-      resume.tex               # tailored output (you write this)
-      Khoa_Ngo_resume.pdf      # compiled, verified 1 page
-      experience.txt           # plain-text mirror of EXPERIENCE (Step 9b)
-      reasoning.md             # decision log: output + reasoning + uncertainty (Step 11.5)
-      cover_letter.md          # cover letter (always generated)
-      Khoa_Ngo_cover_letter.pdf
+jobDescription/<company>.txt          input JD
+output/<company>/resume.tex           you write this (1 page)
+output/<company>/cover_letter.tex     only with --cover
+.claude/skills/tailor/
+  assets/master_resume.tex            THE source of truth — every project + every bullet
+  assets/cover_letter.tex             Jake-style cover-letter template
+  assets/cover_letter_voice.md        cover-letter voice anchor
+  references/tailoring-guide.md        full per-JD pipeline — READ THIS before composing
+  references/honesty-rules.md          the audit you run before saving
+  references/keywords.md               ALLOWED / FORBIDDEN keyword ledger (by category)
+  references/cover-letter.md           cover-letter pipeline (only for --cover)
+  scripts/check_resume_fit.py          deterministic fit checker (fires automatically on save)
 ```
 
-## Project pool (closed set of 5)
-
-| Order | Project | Date | Bullets in |
-|---|---|---|---|
-| 1 (tie) | Local Lens | Dec 2025 -- Present | bullet_pool.tex |
-| 1 (tie) | LinkedIn Outreach | May 2026 -- Present | bullet_pool.tex |
-| 3 | P4-stack | Oct 2025 -- Dec 2025 | bullet_pool.tex |
-| 4 | PR Pilot | Sep 2025 -- Oct 2025 | bullet_pool.tex |
-| 5 | Autoly | May 2025 -- Jul 2025 | bullet_pool.tex |
-
-Pool is closed. **Do not invent new projects.** If a JD strongly demands a domain none of these covers (e.g., hardware/FPGA), flag it in the per-JD report under "unaddressed JD signals" so Khoa can decide.
-
----
-
-## Per-JD pipeline
-
-For each JD to process, do the following IN ORDER.
-
-### Step 1 — JD analysis (structured)
-
-Read `jobDescription/<company>.txt` and produce this internal structure:
-
-```
-role_type:       SWE | ML | Data | DevOps | Frontend | mixed
-top_keywords:    [list, ranked by JD frequency + emphasis]
-must_haves:      [list — requirements that gate the application]
-nice_to_haves:   [list — desirable but optional]
-anti_signals:    [list — things the JD warns away from, if any]
-```
-
-A cover letter is always produced (Step 11) — no JD-side trigger needed.
-
-Surface this analysis verbatim in the per-JD report (Step 12) so Khoa can audit your reasoning.
-
-### Step 2 — Project selection (exactly 3)
-
-Score each of the 5 pool projects against the JD analysis. Counting JD-keyword matches in tech-stack tags and bullet content is the primary signal. Pick the top 3.
-
-**Tiebreak**: when two projects score similarly, **prefer the project with stronger numbers** (installs, latency, accuracy, user counts). Recency / tech diversity are secondary.
-
-**No archetype defaults.** Trust the JD analysis each time. (The old rules like "keep Local Lens unless purely backend" are removed.)
-
-### Step 3 — Project ordering across the section
-
-Strict chronological, most recent first. Use end date; ongoing "Present" beats any past end date.
-
-Local Lens vs. LinkedIn Outreach are both "Present" — tiebreak by JD relevance (more JD-relevant first, then the other).
-
-### Step 4 — Project body composition (heavy rewrite, facts locked)
-
-For each chosen project:
-
-**a. Pick bullets from the pool.** Read `bullet_pool.tex` for that project. Khoa's resume runs **sparse**, so pick **as many defensibly-relevant bullets as the page can hold — up to 5** (Local Lens has 5 in the pool). **Prefer filling the page over dropping bullets.** Variable count is allowed (a project might offer only 2 strong bullets), but lean toward *more*. The deterministic fit checker in Step 10 decides how many actually fit — start generous and let it prune.
-
-**b. Reorder bullets — lead bullet is pinned.** The **first `\resumeItem` in that project's `bullet_pool.tex` block is the project-definition bullet ("what this project is") — it always leads and is always kept.** You may *slightly* reword it for JD vocabulary, but it must stay the what-is-this-project bullet. Order the **remaining** bullets relevance-first (most JD-relevant next).
-
-**c. Heavy-rewrite each kept bullet.** You may:
-- Swap verbs ("automates" → "orchestrates" if JD uses "orchestration").
-- Reframe in JD vocabulary ("Random Forest" → "classification model" if JD says "classification"; "OCR pipeline" → "CV inference pipeline" if JD says "computer vision"). Honest as long as the underlying mechanic holds.
-- Restructure the sentence shape.
-- Insert **EXACT keyword matches** from the JD wherever defensible — ATS systems are dumb and reward verbatim string matches.
-
-**Style is locked**: `action verb + what it is + measurable result + rest`. Every bullet follows this shape.
-
-**Fact lock**: every number, percentage, date, install count, accuracy figure, latency, tech name, company name must trace 1:1 to a source `.tex` file. No new numbers. No new tech names not present in the project's repo or interview.
-
-**d. Tech-stack `\emph{...}` line.** Reorder JD-relevant tech first. Prune irrelevant items. Add a tech that appears inside a kept bullet if it strengthens the line (e.g., add `AWS` to Local Lens's stack line for a cloud JD because a bullet mentions S3 + CloudFront).
-
-**e. No bold or other in-bullet emphasis.** Keep visual hierarchy at the section/project level only.
-
-### Step 5 — Experience body composition
-
-Same heavy-rewrite-facts-locked rules as projects. **Both IOE and FPT Telecom always kept** — never drop either.
-
-For IOE: bullets must not claim credit for the Mastra agent itself (it pre-existed). Khoa owned the **gateway**, not the agent.
-
-For FPT Telecom: the bullet pool intentionally **does not include** the 86%→93% XGBoost claim (that was the other intern's work). Do not reinstate it under any framing.
-
-### Step 6 — Education
-
-Verbatim. Don't touch the coursework line. The ICPC bullet now includes "1st in Division 2" — keep it.
-
-### Step 7 — Technical Skills (heavy rebuild)
-
-Start from the master skills block (lines 189–198 of `one_page_general.tex`). Then:
-
-**a. Drop irrelevant skills.** If the JD has no signal touching a skill, remove it. (E.g., drop `PaddleOCR` for a pure backend infra JD.)
-
-**b. Rename or replace categories per JD.** The default 4 (Languages, AI/ML, Frameworks & Libraries, Developer Tools) are not sacred. For a distributed-systems JD, add a "Distributed Systems" or "Backend" category. For a frontend JD, add "Frontend & Browser". For an ML JD, rename "AI/ML" to "ML & Modeling".
-
-**c. Add aggressively from defensible sources.** Mine bullets + JD generously. Honestly defensible additions include:
-- "Machine Learning", "Deep Learning", "Neural Networks" (Coursera DL Specialization + CS50 AI completed; XGBoost / Random Forest / PyTorch in work).
-- "REST APIs", "OOP", "Git workflows", "Type Hints", "Error Handling", "Retry Logic".
-- "Docker", "Containerization", "CI/CD", "DevOps" (PR Pilot's Docker + GitHub Actions).
-- "WebGPU", "WASM", "Manifest V3", "Browser Extensions", "Service Workers", "Web Workers" (Local Lens).
-- "Information Retrieval", "NLP", "LLM", "Prompt Engineering", "AI Agent" (LinkedIn Outreach + PR Pilot).
-- "Real-time Systems", "Audio Processing", "Telephony", "WebSocket", "Streaming" (IOE / Mastra Voice Gateway).
-- "SQL", "SQLite" (Autoly — SQLite + sqlite3 + auth).
-- "Bash", "Shell Scripting" (PR Pilot's entrypoint.sh + Makefiles).
-- "JavaScript", "HTML/CSS" (Local Lens UI — distinct from TypeScript).
-- "Pandas", "NumPy", "Matplotlib", "Seaborn", "Jupyter" (FPT data work).
-- "Svelte" (metriclens), "Node.js" (Local Lens testing), "FPGA" (college).
-
-**d. EXACT JD keyword matches.** If the JD says "data analysis" verbatim, list "Data Analysis". If it says "ranking systems", you can list "Ranked Retrieval" (defensible via LinkedIn Outreach) — but **not** "Ranking Systems" if the underlying work isn't a ranking system.
-
-**e. One line per category — hard limit.** Each `\textbf{Category}{: ...}` line must fit on a single rendered line. At 11pt with this template's font, the text column holds roughly 95–105 characters of content after the category label. If a line wraps, **prune the lowest-JD-signal entries until it fits.** Don't trade page count for skill density.
-
-### Step 8 — Honesty audit (runs BEFORE writing)
-
-Reject your own draft if any of these appear:
-
-1. A number, percentage, date, or tech name without a trace to a source `.tex` file or to the LinkedIn-Outreach repo material.
-2. **"RAG"** anywhere. LinkedIn Outreach uses rank/tier-based retrieval with no embeddings — calling it RAG is misleading.
-3. **"XGBoost ... 93%"** in any form. That was the teammate's work.
-4. **"Honors"** or **"Honors Program"**.
-5. **"Large-scale"**, **"production-grade"**, **"high-throughput"**. None of Khoa's work operates at that scale.
-6. **Generic resume buzzwords**: spearheaded, leveraged, owned, world-class, 10x, best-in-class, synergize.
-7. **Tech Khoa hasn't touched**: Java, Kubernetes, Rust, Go, .NET, Angular, Vue, Solana, Spring (only if a defensible source emerges).
-8. **"Agentic"** unless the JD itself uses the term. If JD uses it, you may use it.
-
-If the audit fails: fix and re-audit. Surface every triggered rule in the per-JD report under "honesty audit corrections".
-
-### Step 9 — Write the `.tex` file
-
-Create `example_output/<company>/` (use `mkdir -p`). Write the composed file to `example_output/<company>/resume.tex`. The file must:
-
-- Copy `one_page_general.tex` lines 1–120 (preamble + heading) verbatim.
-- Copy the EDUCATION section (lines 122–135) verbatim, with the source-side updated ICPC bullet (already includes "1st in Division 2").
-- Embed the heavy-rewritten EXPERIENCE section.
-- Embed the heavy-rewritten PROJECTS section (3 projects).
-- Embed the rebuilt TECHNICAL SKILLS section.
-- End with `\end{document}` and a trailing newline.
-
-### Step 9b — Write `experience.txt` (plain-text mirror of EXPERIENCE)
-
-Khoa often pastes the experience section into job-application forms. Alongside `resume.tex`, write `example_output/<company>/experience.txt` derived from the same composed EXPERIENCE section. Do this **before** Step 10 — that way the file lands even if pdflatex later fails.
-
-Format (matches `experience.txt.example` at the repo root):
-
-For each `\resumeSubheading` block, in source order:
-
-1. **Company line**: the third brace argument of `\resumeSubheading` (the company string), with any trailing parenthetical qualifier stripped — drop ` (Early-Stage)`, ` (Remote)`, etc. Examples: `Interested Opportunity Engine (Early-Stage)` → `Interested Opportunity Engine`; `FPT Telecom` → `FPT Telecom`.
-2. **One blank line.**
-3. **Bullets**: one line per `\resumeItem{...}`, prefixed with `•` (U+2022, no space after the bullet). Unescape LaTeX: `\%` → `%`, `\$` → `$`, `\&` → `&`, `\#` → `#`, `\_` → `_`. Otherwise take the contents verbatim — do **not** include `\resumeItem`, braces, job titles, dates, or locations.
-4. **Two blank lines** before the next entry.
-
-End the file with a single trailing newline. Overwrite on re-run (same idempotency as `resume.tex`).
-
-### Step 10 — Compile, then run the deterministic fit check
-
-Check `pdflatex` is available:
-
-```bash
-command -v pdflatex || echo "pdflatex MISSING — install: sudo apt update && sudo apt install -y texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra"
-```
-
-If missing, stop and ask Khoa to install.
-
-**One-time setup** (skip if `.venv/` already exists): the fit checker needs `pdfplumber`.
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-```
-
-Compile:
-
-```bash
-cd example_output/<company> && pdflatex -interaction=nonstopmode -jobname=Khoa_Ngo_resume resume.tex
-```
-
-**Deterministic fit check.** From the repo root, run:
-
-```bash
-.venv/bin/python check_resume_fit.py <company>
-```
-
-This reads the rendered word boxes out of the PDF and prints, deterministically: `page_count`, `fullness` (target **0.85–0.95** of the printable height), a per-bullet line with an `OK` / `FLAG` / `SKIP` tag (`FLAG` = last rendered line has **≤4 words**), a `spillover_flags` count, and a one-word `verdict`. Exit `0` = OK; `1` = actionable (UNDERFULL / OVERFULL / SPILLOVER / MULTIPAGE); `2` = tooling/usage error. If exit `2` says `pdfplumber not installed`, run the setup command above. (The script only **detects** — it never edits the `.tex`. This trimming/filling loop runs **only during `/tailor`**; the editor save-hook still just rebuilds the PDF, no trimming.)
-
-**Act on the `verdict` in a bounded iterate-then-report loop (cap ~3 passes total, then report final state even if not perfect):**
-
-- **`SPILLOVER`** — for each bullet tagged `FLAG`, trim **filler only**: drop connectives ("that", "which", "in order to", "various", "really", "simply"), redundant articles, weak qualifiers; tighten verb phrases ("was responsible for designing" → "designed"). **Preserve every verbatim JD keyword** the bullet was tailored to hit and **every locked fact** (numbers, dates, tech names, company names — Step 8 rules). Recompile and re-run the checker. Max 2 trim attempts per bullet; if the flag survives, **leave the bullet as-is** — a ≤4-word spillover beats a fact mutation or coverage loss. Bullets tagged `SKIP` (low match confidence) are **not** trim targets.
-- **`UNDERFULL`** (fullness < 0.85) — add coverage: promote one more JD-relevant bullet from `bullet_pool.tex` into the lowest-density project (or restore a bullet pruned earlier). Prefer adding a **whole, fact-locked pool bullet** over padding an existing one. Recompile and re-check.
-- **`OVERFULL`** (fullness > 0.95) or **`MULTIPAGE`** — prune loop, max 3 iterations:
-  - **Iteration 1**: drop the JD-lowest-scoring bullet from the JD-lowest-scoring project. Recompile.
-  - **Iteration 2**: drop the entire JD-lowest-scoring project (leaving 2). Recompile. Re-verify the remaining 2 are still chronological, most recent first.
-  - **Iteration 3**: drop the JD-lowest-scoring bullet from the now-lowest-scoring project. Recompile.
-  - After 3 failed iterations: stop, report the overflow, leave the `.tex` for Khoa.
-  Never drop Education, Header, or either Experience entry during pruning.
-- **`OK`** — done. Clean aux files: `rm -f example_output/<company>/Khoa_Ngo_resume.{aux,log,out,fls,fdb_latexmk}`.
-
-Surface every trim, coverage add, and the final verdict/fullness in the per-JD report (Step 12).
-
-### Step 11 — Cover letter (always generated)
-
-Every JD gets a cover letter. Four sub-steps.
-
-**11a. Company research (sub-agent).**
-
-Spawn a sub-agent via the Agent tool with `subagent_type: general-purpose`. The sub-agent uses WebFetch to visit the company's primary website and extract impressive concrete numbers and notable specifics.
-
-- **URL derivation**: lowercase the JD filename stem and try `https://www.<stem>.com` first (e.g. `Skydio.txt` → `skydio.com`). If the JD body contains a different official URL (or the stem is ambiguous, e.g. `OxfamInternational` → `oxfam.org`), prefer that.
-- **Sub-agent prompt** (self-contained): visit the homepage; if useful, follow 1–2 obvious links from {About, Customers, Investors, Press, Newsroom, Impact}. Pull **impressive concrete numbers** (counts, scale facts, rankings, deployment figures) and **notable specifics** (named products, programs, customers, missions). Return exactly this shape:
-  ```
-  company: <name>
-  url_used: <url>
-  impressive_numbers:
-    - "<fact with a number>"
-    ...
-  notable_specifics:
-    - "<product / program / customer / mission>"
-    ...
-  ```
-- Bar for "impressive" — Khoa's examples: "serving 74,000+ businesses", "100M+ monthly users", "Electron is the 2nd most frequently launched U.S. rocket". Specificity plus a number.
-- If the site has nothing usable (small/private company, sparse site), the sub-agent says so explicitly. **Do not fabricate.**
-
-**11b. Compose `cover_letter.md`.**
-
-Read `cover_source/cover_letter_template.md` as the voice anchor — self-deprecating, specific, narrative; not corporate. Then write the file in this exact shape:
-
-```markdown
-## Company insights
-[<insight 1>, <insight 2>, <insight 3>, ...]
-
----
-
-<Today's date, e.g. "May 27, 2026">
-
-<Company name> Recruiting Team
-
-Dear <Company> team,
-
-<opening paragraph — identity hook from template>
-
-<body paragraph — one project mapped to the JD>
-
-<closing paragraph — names at least one specific insight by its actual value>
-
-Sincerely,
-Khoa Ngo
-```
-
-Rules:
-
-- The `[ ... ]` list under `## Company insights` is a compact summary of what the sub-agent returned — short phrases, comma-separated. This section is for Khoa's audit; the rebuild script strips it before PDF conversion.
-- **Opening**: 1-line identity + hook. Template's pattern: "I'm a junior CompE at FSU (3.9 GPA, ICPC Gold '24, 1st in Div 2 NA South), but the things I actually want to tell you about are below."
-- **Body**: ONE project paragraph, mapped to the JD. Pick the project with the strongest JD fit (often P1 from the resume). Tell its story in voice, not in resume-bullet shape.
-- **Closing**: "Why this company". Must name at least one item from `impressive_numbers` or `notable_specifics` by its actual value (e.g. "the 74,000+ businesses already on Skydio", not "your impressive customer base"). 2–3 sentences, in voice.
-- **If the sub-agent came up empty**: keep the `## Company insights` section with `[none found from <url>]`, and write the closing as a one-line `[TODO: Khoa — fill in why this company]` placeholder. Flag it in the report. Do NOT write a generic "I'm excited about your innovative mission" closing.
-- **Date format**: "Month D, YYYY" using today's actual date.
-- **Recipient line**: `<Company> Recruiting Team`. If the JD body names a specific team, hiring manager, or department, use that instead.
-
-**11c. Honesty audit.**
-
-Run the Step 8 rules. Add one closing-specific rule: every company-fact in the closing must trace 1:1 to what the sub-agent returned. No inflating "74,000+" to "75,000+", no merging two facts into a vaguer one. Every item inside `[ ... ]` must match what the sub-agent returned.
-
-**11d. Write and compile to PDF.**
-
-Write the markdown to `example_output/<company>/cover_letter.md`. Then compile:
-
-```bash
-python rebuild_cover_letter.py <company>
-```
-
-This produces `example_output/<company>/Khoa_Ngo_cover_letter.pdf`. The script strips the `## Company insights` section, then runs pandoc + pdflatex. If `pandoc` or `pdflatex` is missing, the script prints the install hint and exits non-zero — surface that to Khoa rather than papering over it.
-
-### Step 11.5 — Decision log (`reasoning.md`)
-
-The PDF shows Khoa *what* you produced; it doesn't show *why* or *what you weren't sure about*. This pipeline makes ~20 distinct judgment calls per JD (which 3 projects, which bullets, which reframes, which skills to add or drop, what to leave uncovered). Persist them so Khoa can audit any single call without re-deriving it.
-
-Write `example_output/<company>/reasoning.md`. Do this **after** the resume and cover letter exist (so the artifact list and page count are real), and **before** the Step 12 chat report — Step 12 is then just this file's highlights echoed to the terminal.
-
-Use this exact skeleton. Fill every section; if a section is genuinely empty, write `none` rather than deleting the heading.
-
-```markdown
-# Reasoning — <company>
-
-_Generated by `/tailor` on <today's date>. Decision log for this application: what I produced, why, and where I'm unsure. Every fact still traces to source — this file explains choices, it does not add new claims._
-
-## 1. JD analysis
-- **role_type:** <...>
-- **top_keywords:** <ranked list>
-- **must_haves:** <...>
-- **nice_to_haves:** <...>
-- **anti_signals:** <... | none>
-
-## 2. Project selection (3 of 5)
-| Project | Verdict | Why |
-|---|---|---|
-| <name> | ✅ picked (P1) | <score rationale: which JD keywords it hits> |
-| ... | ❌ dropped | <why it lost> |
-<Note any tiebreak you invoked (numbers-first, recency).>
-
-## 3. Per-project rewrites
-For each chosen project:
-- **bullets kept (+ order):** <which pool bullets, why this order>
-- **key reframes:** `<source wording>` → `<output wording>` (and the JD word that drove it)
-- **tech-stack `\emph{}` changes:** <reorders / prunes / additions + why>
-
-## 4. Experience reframes
-- **IOE:** <wording changes | none>
-- **FPT Telecom:** <wording changes | none>
-
-## 5. Technical skills rebuild
-- **categories used:** <list, noting any renames vs. the default 4>
-- **added (+ source justification):** <skill → why defensible>
-- **dropped (+ reason):** <skill → why irrelevant>
-- **considered but skipped:** <skill → why, usually "no defensible source">
-
-## 6. Honesty audit
-- **triggers caught + fixes:** <Step 8 rule → what you changed | none>
-
-## 7. JD coverage
-- **addressed:** <JD keyword → where it landed (bullet / skill / stack)>
-- **unaddressed:** <JD keywords with no honest home — the real gaps Khoa should know about>
-
-## 8. Cover letter
-- **company research:** <url_used → N impressive numbers, M specifics | none found>
-- **angle chosen:** <the one-line thesis of the letter and why>
-- (omit this section's body and write `n/a — JD said no cover letter` when none was generated)
-
-## 9. Uncertainty & judgment calls
-The candid section. Be specific, not reassuring. Cover:
-- **Stretches:** any skill/reframe you added that is defensible-but-thin — name it and rate confidence (high / medium / low).
-- **Gaps the resume can't close:** must-haves with no backing (e.g. "JD wants 2+ yrs Snowflake; Khoa has none").
-- **Coin-flips:** decisions that could reasonably have gone the other way (e.g. "P4-stack vs. Autoly for slot 3 was close").
-- **Open questions for Khoa:** anything a human should confirm before sending.
-
-## 10. Output artifacts
-- resume.tex / Khoa_Ngo_resume.pdf — page count: <N>
-- experience.txt
-- cover_letter.md / Khoa_Ngo_cover_letter.pdf <| n/a>
-```
-
-**Tone rule for Section 9:** this is the one place you are *required* to volunteer doubt. If you write "no uncertainties," you're almost certainly hiding a stretch — re-read your own skills additions and unaddressed coverage. A flag here is never penalized; a buried stretch discovered later is.
-
-### Step 12 — Per-JD report
-
-Echo the highlights of `reasoning.md` to the terminal (the file is the source of truth; this is the at-a-glance view). Print one block per JD:
-
+## Pipeline (per JD)
+Full detail in `references/tailoring-guide.md`. In short:
+
+1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
+2. **Select projects** — score the 5 pool projects; keep the top few (usually 3) that fill the
+   page, in **chronological order, most recent first**. Both experiences are always kept, IOE
+   above FPT. Selection is project-granular: keep a chosen project's bullets together.
+3. **Compose `output/<company>/resume.tex`** — copy preamble/heading/education verbatim from
+   `master_resume.tex`; embed the chosen experiences + projects with bullets kept faithful
+   (light keyword reword only); rebuild Technical Skills from `references/keywords.md`
+   (drop/rename/add categories, up to **5** rows, each one rendered line).
+4. **Honesty audit** — run `references/honesty-rules.md` before saving; fix every trigger.
+5. **Save → auto fit-check.** Writing `resume.tex` fires a hook that recompiles the PDF and runs
+   the fit checker, returning a fit report as context. **You never run the checker yourself.**
+6. **React to the fit report** until it reads `OK`:
+   - `UNDERFULL` (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet to a
+     chosen project. Once all bullets + 5 skill rows are in and it's still under, accept it and stop.
+   - `SPILLOVER` / orphan `FLAG` — lightly reword the flagged bullet so its last line isn't ≤4
+     words (*must* be fixed). Never cut a number fact to do it.
+   - `OVERFULL` / `MULTIPAGE` — drop the lowest-JD-scoring project. Never drop education, header,
+     or either experience.
+7. **Cover letter** — only with `--cover`. See `references/cover-letter.md`.
+8. **Report** — one ~5-line block per JD (below). No `reasoning.md` is written anymore.
+
+## Per-JD summary (print to terminal)
 ```
 <company>:
-  JD analysis:
-    role_type: <...>
-    top_keywords: <...>
-    must_haves: <...>
-    anti_signals: <...>
-  projects: <P1>, <P2>, <P3>   (chronological, most recent first)
-  project bullet selections (per project): <which pool bullets were used + why>
-  bullets dropped during pruning: <list> | none
-  fit check: verdict=<OK|SPILLOVER|UNDERFULL|OVERFULL|MULTIPAGE>  fullness=<0.NN>
-  tight-line trims: <bullet → words removed> | none
-  coverage adds (if underfull): <bullet added> | none
-  tech-stack \emph{} changes (per project): <reorders / prunes / additions>
-  experience reframes:
-    IOE: <list of wording changes>
-    FPT Telecom: <list of wording changes>
-  skills added (with justification): <list>
-  skills dropped (with reason): <list>
-  skills considered but skipped: <list with reason — usually "no source evidence">
-  honesty audit corrections: <triggers caught and fixed> | none
-  JD coverage:
-    addressed: <keyword → location>
-    unaddressed: <JD keywords with no defensible home in the resume>
-  uncertainty flags: <one-line digest of reasoning.md Section 9 — stretches + gaps> | none
-  page count: 1
-  pdf: example_output/<company>/Khoa_Ngo_resume.pdf
-  reasoning: example_output/<company>/reasoning.md
-  experience_txt: example_output/<company>/experience.txt
-  company research: <url_used> — N impressive numbers, M notable specifics | none found, placeholder closing flagged
-  cover_letter: example_output/<company>/cover_letter.md
-  cover_letter_pdf: example_output/<company>/Khoa_Ngo_cover_letter.pdf
+  projects: <P1>, <P2>, <P3>      (chronological, most recent first)
+  fill: 0.9x   verdict: OK | UNDERFULL(accepted) | ...
+  honesty flags: <triggers caught + fixed> | none
+  uncovered must-haves: <JD requirements with no honest home> | none
 ```
-
-### Step 13 — Final summary
-
-After all JDs are processed, list one line per JD with its status. Flag any JDs that overflowed past 3 prune attempts and any with non-empty "unaddressed" coverage gaps.
-
----
-
-## Honesty rules (read these every run)
-
-1. **No invented metrics.** Every number traces 1:1 to a source `.tex` file or to the project's repo.
-2. **No invented technologies.** Every tech name on the page exists in source.
-3. **No invented dates or companies.** Copy date ranges verbatim.
-4. **No relabeling the project's category.** Random Forest classifier is not a "ranking model" just because the JD says ranking. Reframing in JD vocabulary stops at honest reframings.
-5. **No implying scale you didn't operate at.** 290 installs is not "large-scale".
-6. **No "RAG"** for LinkedIn Outreach. Use "ranked retrieval" / "tier-based few-shot retrieval" / "information retrieval".
-9. **No generic buzzwords**: spearheaded, leveraged, owned, world-class, 10x, best-in-class, synergize.
-10. **Default to less, not more.** When uncertain whether a fact survives a rewording, keep the original wording.
-11. **Skills additions: when in doubt, skip and note in the report.**
-
----
-
-## Quick reference: what's verbatim vs. what changes per JD
-
-| Section | Per-JD action |
-|---|---|
-| Preamble (lines 1–105 of one_page_general.tex) | Verbatim |
-| `\begin{document}` | Verbatim |
-| Heading (Khoa Ngo + contacts) | Verbatim |
-| Education (incl. ICPC bullet) | Verbatim from source |
-| Experience (both entries, always kept) | Heavy rewrite per Step 5 |
-| Projects (3, chronological) | Heavy rewrite per Step 4; pull bullets from `bullet_pool.tex` |
-| Technical Skills | Heavy rebuild per Step 7 |
-| `\end{document}` | Verbatim |
-| `experience.txt` | Plain-text mirror of EXPERIENCE section, written alongside `resume.tex` per Step 9b |
-| `reasoning.md` | Decision log written per Step 11.5 — output + reasoning + uncertainty, one per company |
-| Cover letter | Always generated; closing personalized via sub-agent web research; compiled to PDF via `rebuild_cover_letter.py` |
-
----
-
-## VSCode integration (already configured)
-
-`.vscode/settings.json` in this repo has LaTeX Workshop set to rebuild `Khoa_Ngo_resume.pdf` on every save of any `.tex` in the workspace. Once `/tailor` writes a `resume.tex`, Khoa can edit it directly and ctrl+s refreshes the PDF — no need to re-run `/tailor` for tweaks.
+The `uncovered must-haves` line is the one you must always surface — it's what changes whether Khoa hits "submit".

@@ -5,34 +5,42 @@ Measures two things on a compiled ``Khoa_Ngo_resume.pdf`` (paired with its
 ``resume.tex``) — *deterministically*, by reading the rendered word boxes out
 of the PDF with pdfplumber:
 
-1. **Fullness** — how far down the page the content reaches (target 85-95%).
-2. **Spillover** — any bullet whose *last rendered line* carries <= 4 words.
+1. **Fullness** — how far down the page the content reaches (target 95-100%;
+   pack it as high as possible without spilling to a 2nd page).
+2. **Spillover** — any bullet whose *last rendered line* carries <= 4 words
+   (a <= 2-word dangling line is the worst case and must be fixed).
 
 It only DETECTS. It never edits the .tex. During /tailor, Claude acts on the
-report (trims filler on flagged bullets, adds pool bullets when under-full),
-keeping JD keywords and locked facts intact.
+report (LIGHTLY rewords an orphan-flagged bullet so it stops dangling, or adds a
+whole pool project/bullet when under-full) — it never heavy-rewrites or shortens
+a bullet, and it keeps JD keywords and locked facts intact. UNDERFULL is only
+actionable while there is still content to add: once all bullets + up to 5 skill
+rows are in and it is still < 0.95, that is acceptable.
 
-Usage:
-    python check_resume_fit.py <company>
-    python check_resume_fit.py --all
-    python check_resume_fit.py --calibrate <company>   # print suggested constants
+Run from the repo root (the script lives in .claude/skills/tailor/scripts/):
+    .venv/bin/python .claude/skills/tailor/scripts/check_resume_fit.py <company>
+    .venv/bin/python .claude/skills/tailor/scripts/check_resume_fit.py --all
 
-Exit codes (mirrors rebuild_resumes.py):
-    0  every analyzed resume is OK (1 page, 85-95% full, no <=4-word spillover)
+Exit codes (mirrors build_resume.py):
+    0  every analyzed resume is OK (1 page, 95-100% full, no <=4-word spillover)
     1  ran fine but at least one resume is actionable (under/over-full / spillover / multipage)
     2  environment or usage error (pdfplumber missing, no args, missing files)
 """
 
 import argparse
+import importlib.util
 import re
 import string
 import sys
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Optional
 
-ROOT = Path(__file__).resolve().parent
-EXAMPLES = ROOT / "example_output"
+# This script lives at <repo>/.claude/skills/tailor/scripts/check_resume_fit.py,
+# so the repo root (which holds output/) is four parents up.
+REPO_ROOT = Path(__file__).resolve().parents[4]
+OUTPUT = REPO_ROOT / "output"
 JOBNAME = "Khoa_Ngo_resume"
 
 # --- Page geometry (US Letter, points; 1in = 72pt) ---
@@ -46,8 +54,8 @@ PRINTABLE_TOP_PT = 36.0     # ~0.5in from the paper top
 PRINTABLE_BOTTOM_PT = 756.0  # 792 - 36 ; ~0.5in from the paper bottom
 
 # --- Targets / thresholds ---
-FULLNESS_TARGET_LOW = 0.85
-FULLNESS_TARGET_HIGH = 0.95
+FULLNESS_TARGET_LOW = 0.95   # below this is UNDERFULL (add a whole project/bullet)
+FULLNESS_TARGET_HIGH = 1.00  # above this means content spilled into the bottom margin
 SPILLOVER_MAX_WORDS = 4       # a last line with <= this many words is flagged
 MIN_LINES_TO_FLAG = 2         # only wrapped (>1 line) bullets can spill
 
@@ -77,12 +85,12 @@ class Word:
 class Page:
     width: float
     height: float
-    words: list  # list[Word]
+    words: list[Word]
 
 
 @dataclass
 class AlignResult:
-    matched_word_indices: list
+    matched_word_indices: list[int]
     end_index: int
     match_ratio: float
 
@@ -99,21 +107,30 @@ class BulletReport:
 
 
 @dataclass
+class BulletFields:
+    rendered: bool
+    n_lines: int
+    last_line_word_count: int
+    match_ratio: float
+    flagged: bool
+
+
+@dataclass
 class FitReport:
     company: str
     page_count: int
-    fullness: float  # None when page_count != 1
-    content_top: float
-    content_bottom: float
-    bullets: list  # list[BulletReport]
+    fullness: Optional[float]  # None when page_count != 1
+    content_top: Optional[float]
+    content_bottom: Optional[float]
+    bullets: list[BulletReport]
     verdict: str
-    notes: list = field(default_factory=list)
+    notes: list[str] = field(default_factory=list[str])
 
 
 # --------------------------------------------------------------------------- #
 # Pure core: tex parsing
 # --------------------------------------------------------------------------- #
-def _match_braces(s: str, open_index: int):
+def _match_braces(s: str, open_index: int) -> tuple[str, int]:
     """Given s[open_index] == '{', return (inner_text, index_after_close).
 
     Counts brace depth, ignoring escaped \\{ and \\}.
@@ -139,10 +156,10 @@ def _match_braces(s: str, open_index: int):
 
 def _strip_tex_comments(tex: str) -> str:
     """Drop everything from an unescaped % to end of line, line by line."""
-    out = []
+    out: list[str] = []
     for line in tex.splitlines():
         bs = 0
-        cut = None
+        cut: Optional[int] = None
         for idx, ch in enumerate(line):
             if ch == "\\":
                 bs += 1
@@ -155,7 +172,7 @@ def _strip_tex_comments(tex: str) -> str:
     return "\n".join(out)
 
 
-def extract_resume_items(tex: str) -> list:
+def extract_resume_items(tex: str) -> list[str]:
     """Return the brace-balanced body of each body \\resumeItem{...}, in order.
 
     Slices \\begin{document}..\\end{document} (drops the \\newcommand defs),
@@ -166,7 +183,7 @@ def extract_resume_items(tex: str) -> list:
     body = tex[begin:end] if (begin != -1 and end != -1 and end > begin) else tex
     body = _strip_tex_comments(body)
 
-    items = []
+    items: list[str] = []
     # \resumeItem not followed by a letter (so \resumeItemListStart is excluded),
     # then optional whitespace, then the opening brace.
     pat = re.compile(r"\\resumeItem(?![A-Za-z])\s*\{")
@@ -203,7 +220,7 @@ def _replace_href(raw: str) -> str:
     return out
 
 
-def normalize_bullet(raw_tex: str) -> list:
+def normalize_bullet(raw_tex: str) -> list[str]:
     """Tex bullet body -> lowercased token list for alignment against the PDF."""
     s = _replace_href(raw_tex)
     # Unescape LaTeX literals (mirror the Step 9b list).
@@ -214,7 +231,7 @@ def normalize_bullet(raw_tex: str) -> list:
     s = s.replace("---", "-").replace("--", "-")
     s = re.sub(r"\\[A-Za-z]+", " ", s)  # strip remaining control sequences
     s = s.replace("{", " ").replace("}", " ").replace("$", " ").replace("\\", " ")
-    tokens = []
+    tokens: list[str] = []
     for tok in s.lower().split():
         tok = tok.strip(_PUNCT)
         if not tok:
@@ -233,7 +250,7 @@ def normalize_pdf_word(text: str) -> str:
     return t
 
 
-def assign_line_ids_by_y(words: list, eps: float = LINE_CLUSTER_EPS_PT) -> list:
+def assign_line_ids_by_y(words: list[Word], eps: float = LINE_CLUSTER_EPS_PT) -> list[Word]:
     """Return new Words with line_id assigned by clustering on `top`."""
     if not words:
         return []
@@ -250,9 +267,9 @@ def assign_line_ids_by_y(words: list, eps: float = LINE_CLUSTER_EPS_PT) -> list:
             for w in words]
 
 
-def strip_markers(words: list) -> list:
+def strip_markers(words: list[Word]) -> list[Word]:
     """Drop bullet/pipe/dollar glyphs and single non-alnum marks."""
-    out = []
+    out: list[Word] = []
     for w in words:
         n = normalize_pdf_word(w.text)
         if n in _MARKER_TEXTS:
@@ -280,12 +297,12 @@ def tokens_match(b: str, w: str) -> bool:
     return False
 
 
-def align_bullet(bullet_tokens: list, words: list, norm_words: list,
+def align_bullet(bullet_tokens: list[str], words: list[Word], norm_words: list[str],
                  start_hint: int = 0) -> AlignResult:
     """Sequentially align a bullet's tokens to the rendered word stream."""
     i = start_hint
     j = 0
-    matched = []
+    matched: list[int] = []
     skips = 0
     started = False  # lock-on scan (before first match) is unbounded
     nB, nW = len(bullet_tokens), len(words)
@@ -309,21 +326,19 @@ def align_bullet(bullet_tokens: list, words: list, norm_words: list,
     return AlignResult(matched, end, ratio)
 
 
-def detect_spillover(bullet_tokens: list, words: list, norm_words: list,
-                     start_hint: int):
-    """Return (fields_dict, new_hint) for one bullet."""
+def detect_spillover(bullet_tokens: list[str], words: list[Word], norm_words: list[str],
+                     start_hint: int) -> tuple[BulletFields, int]:
+    """Return (BulletFields, new_hint) for one bullet."""
     ar = align_bullet(bullet_tokens, words, norm_words, start_hint)
     if ar.match_ratio < MATCH_RATIO_THRESHOLD or not ar.matched_word_indices:
-        return ({"rendered": False, "n_lines": 0, "last_line_word_count": 0,
-                 "match_ratio": ar.match_ratio, "flagged": False}, start_hint)
+        return (BulletFields(False, 0, 0, ar.match_ratio, False), start_hint)
     matched = [words[k] for k in ar.matched_word_indices]
     line_ids = sorted({w.line_id for w in matched})
     n_lines = len(line_ids)
     last = line_ids[-1]
     last_count = sum(1 for w in matched if w.line_id == last)
     flagged = (n_lines >= MIN_LINES_TO_FLAG and last_count <= SPILLOVER_MAX_WORDS)
-    return ({"rendered": True, "n_lines": n_lines, "last_line_word_count": last_count,
-             "match_ratio": ar.match_ratio, "flagged": flagged}, ar.end_index)
+    return (BulletFields(True, n_lines, last_count, ar.match_ratio, flagged), ar.end_index)
 
 
 # --------------------------------------------------------------------------- #
@@ -331,7 +346,7 @@ def detect_spillover(bullet_tokens: list, words: list, norm_words: list,
 # --------------------------------------------------------------------------- #
 def compute_fullness(page: Page,
                      printable_top: float = PRINTABLE_TOP_PT,
-                     printable_bottom: float = PRINTABLE_BOTTOM_PT):
+                     printable_bottom: float = PRINTABLE_BOTTOM_PT) -> tuple[float, float, float]:
     if not page.words:
         return 0.0, 0.0, 0.0
     content_top = min(w.top for w in page.words)
@@ -341,8 +356,9 @@ def compute_fullness(page: Page,
     return fullness, content_top, content_bottom
 
 
-def build_verdict(page_count: int, fullness, bullets: list):
-    notes = []
+def build_verdict(page_count: int, fullness: Optional[float],
+                  bullets: list[BulletReport]) -> tuple[str, list[str]]:
+    notes: list[str] = []
     if page_count >= 2:
         return "MULTIPAGE", notes
     spill = [b for b in bullets if b.flagged]
@@ -359,11 +375,11 @@ def build_verdict(page_count: int, fullness, bullets: list):
     return "OK", notes
 
 
-def analyze_from_pages(tex: str, pages: list, company: str) -> FitReport:
+def analyze_from_pages(tex: str, pages: list[Page], company: str) -> FitReport:
     """Pure orchestrator: tex string + extracted Pages -> FitReport."""
     page_count = len(pages)
     raw_items = extract_resume_items(tex)
-    notes = []
+    notes: list[str] = []
 
     if page_count != 1:
         return FitReport(company, page_count, None, None, None, [],
@@ -373,7 +389,7 @@ def analyze_from_pages(tex: str, pages: list, company: str) -> FitReport:
     words = strip_markers(page.words)
     norm_words = [normalize_pdf_word(w.text) for w in words]
 
-    bullets = []
+    bullets: list[BulletReport] = []
     hint = 0
     for idx, raw in enumerate(raw_items, start=1):
         toks = normalize_bullet(raw)
@@ -382,9 +398,9 @@ def analyze_from_pages(tex: str, pages: list, company: str) -> FitReport:
             bullets.append(BulletReport(idx, preview, False, 0, 0, 0.0, False))
             continue
         fields, hint = detect_spillover(toks, words, norm_words, hint)
-        bullets.append(BulletReport(idx, preview, fields["rendered"],
-                                    fields["n_lines"], fields["last_line_word_count"],
-                                    fields["match_ratio"], fields["flagged"]))
+        bullets.append(BulletReport(idx, preview, fields.rendered,
+                                    fields.n_lines, fields.last_line_word_count,
+                                    fields.match_ratio, fields.flagged))
 
     fullness, c_top, c_bottom = compute_fullness(page)
     if c_top - PRINTABLE_TOP_PT > 24:
@@ -402,27 +418,26 @@ def analyze_from_pages(tex: str, pages: list, company: str) -> FitReport:
 # --------------------------------------------------------------------------- #
 # Impure wrappers
 # --------------------------------------------------------------------------- #
-def check_deps():
+def check_deps() -> Optional[str]:
     """Return an install-hint string if pdfplumber is unavailable, else None."""
-    try:
-        import pdfplumber  # noqa: F401
-        return None
-    except Exception:
+    if importlib.util.find_spec("pdfplumber") is None:
         return ("pdfplumber not installed - run: "
                 "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt "
                 "(then run this script with .venv/bin/python)")
+    return None
 
 
-def extract_pages(pdf_path: Path) -> list:
-    import pdfplumber
-    pages = []
-    with pdfplumber.open(str(pdf_path)) as pdf:
+def extract_pages(pdf_path: Path) -> list[Page]:
+    import pdfplumber  # untyped third-party (reportMissingTypeStubs off in pyrightconfig)
+
+    pages: list[Page] = []
+    pdf_open: Any = pdfplumber.open
+    with pdf_open(str(pdf_path)) as pdf:
         for p in pdf.pages:
-            raw = p.extract_words(use_text_flow=True)
-            words = [Word(w["text"], float(w["x0"]), float(w["x1"]),
+            raw: list[dict[str, Any]] = p.extract_words(use_text_flow=True)
+            words = [Word(str(w["text"]), float(w["x0"]), float(w["x1"]),
                           float(w["top"]), float(w["bottom"])) for w in raw]
-            words = assign_line_ids_by_y(words)
-            pages.append(Page(float(p.width), float(p.height), words))
+            pages.append(Page(float(p.width), float(p.height), assign_line_ids_by_y(words)))
     return pages
 
 
@@ -431,7 +446,7 @@ def load_tex(path: Path) -> str:
 
 
 def analyze_company(company: str) -> FitReport:
-    out_dir = EXAMPLES / company
+    out_dir = OUTPUT / company
     pdf = out_dir / f"{JOBNAME}.pdf"
     tex = out_dir / "resume.tex"
     if not pdf.exists():
@@ -473,7 +488,7 @@ def format_report(r: FitReport) -> str:
 
 
 def calibrate(company: str) -> int:
-    pages = extract_pages((EXAMPLES / company) / f"{JOBNAME}.pdf")
+    pages = extract_pages((OUTPUT / company) / f"{JOBNAME}.pdf")
     if not pages:
         print(f"{company}: no pages", file=sys.stderr)
         return 2
@@ -481,11 +496,11 @@ def calibrate(company: str) -> int:
     c_top = min(w.top for w in p.words)
     c_bottom = max(w.bottom for w in p.words)
     sug_top = round(c_top - 10)  # ~first-baseline ascent pad
-    sug_bottom = round((c_bottom - PRINTABLE_TOP_PT) / 0.90 + PRINTABLE_TOP_PT)
+    sug_bottom = round((c_bottom - PRINTABLE_TOP_PT) / 0.97 + PRINTABLE_TOP_PT)
     print(f"{company}: page {p.width:.0f}x{p.height:.0f}pt")
     print(f"  content_top={c_top:.1f}  content_bottom={c_bottom:.1f}")
     print(f"  origin check: content_bottom > content_top ? {c_bottom > c_top} (expect True)")
-    print("  suggested constants for a 0.90 = full reading:")
+    print("  suggested constants for a 0.97 = full reading:")
     print(f"    PRINTABLE_TOP_PT    = {float(sug_top)}")
     print(f"    PRINTABLE_BOTTOM_PT = {float(sug_bottom)}")
     return 0
@@ -493,8 +508,8 @@ def calibrate(company: str) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Deterministic 1-page resume fit checker.")
-    ap.add_argument("company", nargs="?", help="company stem under example_output/")
-    ap.add_argument("--all", action="store_true", help="check every example_output/*/")
+    ap.add_argument("company", nargs="?", help="company stem under output/")
+    ap.add_argument("--all", action="store_true", help="check every output/*/")
     ap.add_argument("--calibrate", metavar="COMPANY",
                     help="print suggested PRINTABLE_* constants from a known-good resume")
     args = ap.parse_args()
@@ -512,7 +527,7 @@ def main() -> int:
             return 2
 
     if args.all:
-        companies = sorted(d.name for d in EXAMPLES.iterdir()
+        companies = sorted(d.name for d in OUTPUT.iterdir()
                            if d.is_dir() and (d / f"{JOBNAME}.pdf").exists())
     elif args.company:
         companies = [args.company]
@@ -522,7 +537,7 @@ def main() -> int:
         return 2
 
     if not companies:
-        print(f"No resumes found under {EXAMPLES}", file=sys.stderr)
+        print(f"No resumes found under {OUTPUT}", file=sys.stderr)
         return 2
 
     worst = 0
