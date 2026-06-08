@@ -6,7 +6,9 @@ locked to source.
 
 ## How it works
 
-1. Drop a job description into `jobDescription/<Company>.txt`.
+1. Drop a job description into `jobDescription/<Company>.txt` — by hand, or auto-scrape a
+   filtered [simplify.jobs](https://simplify.jobs) list with **`/scrape-jobs`**, which writes
+   verbatim Requirements + Responsibilities per company (see `.claude/skills/scrape-jobs/`).
 2. Run the **`/tailor`** agent skill (in [Claude Code](https://claude.com/claude-code)). It reads
    the JD, **selects** the most relevant projects from one master resume, **lightly rewords** them
    for the JD's keywords (never a heavy rewrite, never shorter), rebuilds the skills section, and
