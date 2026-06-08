@@ -1,20 +1,22 @@
 %==============================================================================
 % cover_letter.tex  --  Jake-style LaTeX cover-letter TEMPLATE for /tailor
 %
-% /tailor copies this to output/<company>/cover_letter.tex, fills the <<...>>
-% placeholders, then build_cover_letter.py compiles it with pdflatex.
+% /tailor copies this to output/<company>/cover_letter.tex, fills the TWO
+% remaining placeholders, then build_cover_letter.py compiles it with pdflatex.
 % NO pandoc, NO markdown anywhere.
 %
-% Voice anchor: .claude/skills/tailor/assets/cover_letter_voice.md
-%   (self-deprecating, specific, narrative -- never corporate).
+% The BODY IS FIXED -- it is Khoa's vetted voice-anchor prose (opening hook +
+% IOE + FPT + Local Lens + LinkedIn Outreach, all four stories, never cut).
+% Do NOT edit, reorder, or drop body paragraphs. Only two things vary per JD:
+%   <<Company>>     -- recipient line + salutation
+%   <<WHY_COMPANY>> -- the single "why this company" paragraph, between the
+%                      % @lint:why-company-start / -end sentinels
 %
-% Fill three paragraphs:
-%   opening : 1-line identity hook (FSU CompE, 3.9 GPA, ICPC Gold '24, 1st Div 2)
-%   body    : ONE project mapped to the JD, told as a story (not resume bullets)
-%   closing : why THIS company -- name >=1 researched fact by its ACTUAL value
-%
-% Honesty: every company fact in the closing traces 1:1 to the sub-agent's
-% research (references/honesty-rules.md). No invented numbers.
+% Voice is self-deprecating, specific, narrative -- never corporate.
+% Honesty: every company fact in <<WHY_COMPANY>> traces 1:1 to the research
+% sub-agent (references/honesty-rules.md). No invented numbers. The honesty
+% linter (lint_honesty.py --cover) scans ONLY the why-company paragraph -- the
+% fixed body legitimately attributes the teammate's "XGBoost ... 93%".
 %==============================================================================
 
 % ---------------------------------------------------------------------------
@@ -92,24 +94,30 @@
 
 \vspace{8pt}
 
-%----------LETTER BODY----------
+%----------LETTER BODY (FIXED -- do not edit)----------
 Dear <<Company>> team,
 
-% --- opening: 1-line identity hook, in voice ---
-<<OPENING PARAGRAPH -- identity hook: junior CompE at FSU (3.9 GPA, ICPC Gold '24,
-1st in Div 2 NA South), then pivot to "the things I actually want to tell you
-about are below".>>
+I'm a junior CompE at FSU (3.9 GPA, ICPC Gold '24, 1st in Div 2 NA South), but the things I actually want to tell you about are below.
 
-% --- body: ONE project mapped to the JD, told as a story (not resume bullets) ---
-<<BODY PARAGRAPH -- pick the project with the strongest JD fit; tell its story in
-voice, mapped to what the JD asks for.>>
+At Interested Opportunity Engine (tiny startup), the team had built an LLM agent with a database but couldn't get it wired to a phone number, and an investor pitch was due the next week. I built a gateway that tied the phone number and agent together, shipped the MVP on time, and the pitch landed --- seed money secured.
 
-% --- closing: why THIS company; name >=1 researched fact by its actual value ---
-<<CLOSING PARAGRAPH -- name a specific researched fact (e.g. "the 74,000+
-businesses already on <Company>"), 2-3 sentences, in voice.>>
+At FPT Telecom, we wanted to build a stock-trading system but none of us had touched ML for finance before. I built a Random Forest model at 86\% accuracy on 3 years of Vietnamese stock data, validated against a 3-month holdout. A teammate's XGBoost run later pushed accuracy to 93\%; his model went on to be deployed with \$4{,}000 of test capital.
+
+In my spare time, I got tired of retyping PDF tables into Word for school reports, so I shipped Local Lens, a browser extension that extracts text from images locally. It's at 290+ installs and 60 weekly actives.
+
+More recently, I noticed each 300-character LinkedIn outreach message was eating 25 minutes (sometimes the rest of the evening, depending on whether my butt gave out), so I vibe-coded an agent skill over two days that reads a profile PDF, my resume, GitHub, and personal site to draft a message. Honest result: it sounds nothing like me, arguably worse than zero customization --- but editing its drafts is faster than writing from scratch, so it stays.
+
+%----------WHY THIS COMPANY (the only free-text paragraph)----------
+% @lint:why-company-start
+<<WHY_COMPANY -- ONE paragraph, 2-3 sentences, on why THIS company. Name at least
+one researched fact by its actual value (e.g. "the 74,000+ businesses already on
+<<Company>>"), in voice. No invented numbers; every fact traces to the research
+sub-agent. This is the ONLY slot you write.>>
+% @lint:why-company-end
 
 \vspace{8pt}
 
+Thank you. \\
 Sincerely, \\
 Khoa Ngo
 

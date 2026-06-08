@@ -37,6 +37,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+# Shared tex parsing lives in tex_util (same dir; on sys.path when run as a script).
+from tex_util import (  # noqa: E402
+    extract_skill_rows,
+    replace_href as _replace_href,
+    resume_items as extract_resume_items,
+)
+
 # This script lives at <repo>/.claude/skills/tailor/scripts/check_resume_fit.py,
 # so the repo root (which holds output/) is four parents up.
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -116,6 +123,14 @@ class BulletFields:
 
 
 @dataclass
+class SkillRowReport:
+    category: str
+    rendered: bool
+    n_lines: int
+    wrapped: bool   # True when the row spans more than one rendered line
+
+
+@dataclass
 class FitReport:
     company: str
     page_count: int
@@ -125,101 +140,15 @@ class FitReport:
     bullets: list[BulletReport]
     verdict: str
     notes: list[str] = field(default_factory=list[str])
+    skill_rows: list[SkillRowReport] = field(default_factory=list[SkillRowReport])
 
 
 # --------------------------------------------------------------------------- #
 # Pure core: tex parsing
+# (match_braces / strip_tex_comments / replace_href / resume_items now live in
+#  tex_util; imported above. normalize_bullet stays here -- it is alignment-
+#  specific tokenization for matching against rendered PDF words.)
 # --------------------------------------------------------------------------- #
-def _match_braces(s: str, open_index: int) -> tuple[str, int]:
-    """Given s[open_index] == '{', return (inner_text, index_after_close).
-
-    Counts brace depth, ignoring escaped \\{ and \\}.
-    """
-    assert s[open_index] == "{"
-    depth = 0
-    i = open_index
-    n = len(s)
-    while i < n:
-        c = s[i]
-        if c == "\\":  # skip escaped next char (covers \{ \} \% \$ ...)
-            i += 2
-            continue
-        if c == "{":
-            depth += 1
-        elif c == "}":
-            depth -= 1
-            if depth == 0:
-                return s[open_index + 1:i], i + 1
-        i += 1
-    return s[open_index + 1:], n  # unbalanced; return rest
-
-
-def _strip_tex_comments(tex: str) -> str:
-    """Drop everything from an unescaped % to end of line, line by line."""
-    out: list[str] = []
-    for line in tex.splitlines():
-        bs = 0
-        cut: Optional[int] = None
-        for idx, ch in enumerate(line):
-            if ch == "\\":
-                bs += 1
-                continue
-            if ch == "%" and bs % 2 == 0:
-                cut = idx
-                break
-            bs = 0
-        out.append(line if cut is None else line[:cut])
-    return "\n".join(out)
-
-
-def extract_resume_items(tex: str) -> list[str]:
-    """Return the brace-balanced body of each body \\resumeItem{...}, in order.
-
-    Slices \\begin{document}..\\end{document} (drops the \\newcommand defs),
-    strips comments, then brace-matches each \\resumeItem occurrence.
-    """
-    begin = tex.find("\\begin{document}")
-    end = tex.find("\\end{document}")
-    body = tex[begin:end] if (begin != -1 and end != -1 and end > begin) else tex
-    body = _strip_tex_comments(body)
-
-    items: list[str] = []
-    # \resumeItem not followed by a letter (so \resumeItemListStart is excluded),
-    # then optional whitespace, then the opening brace.
-    pat = re.compile(r"\\resumeItem(?![A-Za-z])\s*\{")
-    pos = 0
-    while True:
-        m = pat.search(body, pos)
-        if not m:
-            break
-        brace_idx = m.end() - 1  # index of the '{'
-        inner, after = _match_braces(body, brace_idx)
-        items.append(inner)
-        pos = after
-    return items
-
-
-def _replace_href(raw: str) -> str:
-    """Replace \\href{url}{shown} with just `shown` (the rendered text)."""
-    out = raw
-    while True:
-        m = re.search(r"\\href\s*\{", out)
-        if not m:
-            break
-        url_open = m.end() - 1
-        _, after_url = _match_braces(out, url_open)
-        # skip whitespace to the second brace
-        j = after_url
-        while j < len(out) and out[j].isspace():
-            j += 1
-        if j < len(out) and out[j] == "{":
-            shown, after_shown = _match_braces(out, j)
-        else:
-            shown, after_shown = "", after_url
-        out = out[:m.start()] + shown + out[after_shown:]
-    return out
-
-
 def normalize_bullet(raw_tex: str) -> list[str]:
     """Tex bullet body -> lowercased token list for alignment against the PDF."""
     s = _replace_href(raw_tex)
@@ -341,6 +270,32 @@ def detect_spillover(bullet_tokens: list[str], words: list[Word], norm_words: li
     return (BulletFields(True, n_lines, last_count, ar.match_ratio, flagged), ar.end_index)
 
 
+def detect_skill_wrap(rows: list[tuple[str, str]], words: list[Word],
+                      norm_words: list[str], start_hint: int) -> list[SkillRowReport]:
+    """Flag any Technical-Skills row that wraps to more than one rendered line.
+
+    Each row's tokens (category label + content) are aligned against the word
+    stream with a threaded hint anchored on the category, then the distinct
+    rendered line_ids it touches are counted. >1 line == WRAP (advisory).
+    """
+    out: list[SkillRowReport] = []
+    hint = start_hint
+    for category, content in rows:
+        toks = normalize_bullet(f"{category} {content}")
+        if not toks:
+            out.append(SkillRowReport(category, False, 0, False))
+            continue
+        ar = align_bullet(toks, words, norm_words, hint)
+        if ar.match_ratio < MATCH_RATIO_THRESHOLD or not ar.matched_word_indices:
+            out.append(SkillRowReport(category, False, 0, False))
+            continue
+        line_ids = {words[k].line_id for k in ar.matched_word_indices}
+        n_lines = len(line_ids)
+        out.append(SkillRowReport(category, True, n_lines, n_lines > 1))
+        hint = ar.end_index
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Pure core: fullness + verdict + orchestration
 # --------------------------------------------------------------------------- #
@@ -402,17 +357,23 @@ def analyze_from_pages(tex: str, pages: list[Page], company: str) -> FitReport:
                                     fields.n_lines, fields.last_line_word_count,
                                     fields.match_ratio, fields.flagged))
 
+    skill_rows = detect_skill_wrap(extract_skill_rows(tex), words, norm_words, hint)
+
     fullness, c_top, c_bottom = compute_fullness(page)
     if c_top - PRINTABLE_TOP_PT > 24:
         notes.append(f"unexpected top gap ({c_top:.0f}pt); PRINTABLE_TOP may need calibration")
     n_skipped = sum(1 for b in bullets if not b.rendered)
     if n_skipped:
         notes.append(f"{n_skipped} bullet(s) skipped (low match confidence)")
+    n_wrap = sum(1 for s in skill_rows if s.wrapped)
+    if n_wrap:
+        wrapped = ", ".join(s.category for s in skill_rows if s.wrapped)
+        notes.append(f"{n_wrap} skill row(s) WRAP to >1 line: {wrapped} (prune to fit)")
 
     verdict, vnotes = build_verdict(page_count, fullness, bullets)
     notes.extend(vnotes)
     return FitReport(company, page_count, fullness, c_top, c_bottom,
-                     bullets, verdict, notes)
+                     bullets, verdict, notes, skill_rows)
 
 
 # --------------------------------------------------------------------------- #
@@ -481,6 +442,11 @@ def format_report(r: FitReport) -> str:
             lines.append(f"    [{b.index:02d}] {tag:<4} {detail}  \"{b.preview}\"")
     n_flag = sum(1 for b in r.bullets if b.flagged)
     lines.append(f"  spillover_flags: {n_flag}   (bullets with <= {SPILLOVER_MAX_WORDS}-word last line)")
+    if r.skill_rows:
+        lines.append("  skill_rows:")
+        for s in r.skill_rows:
+            tag = "WRAP" if s.wrapped else ("OK" if s.rendered else "SKIP")
+            lines.append(f"    [{tag:<4}] lines={s.n_lines}  \"{s.category}\"")
     lines.append(f"  verdict: {r.verdict}")
     if r.notes:
         lines.append(f"  notes: {'; '.join(r.notes)}")
@@ -512,12 +478,22 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="check every output/*/")
     ap.add_argument("--calibrate", metavar="COMPANY",
                     help="print suggested PRINTABLE_* constants from a known-good resume")
+    ap.add_argument("--pages", metavar="PDF",
+                    help="print the page count of a PDF and exit (used by the cover-letter hook)")
     args = ap.parse_args()
 
     hint = check_deps()
     if hint:
         print(hint, file=sys.stderr)
         return 2
+
+    if args.pages:
+        try:
+            print(len(extract_pages(Path(args.pages))))
+            return 0
+        except Exception as e:  # noqa: BLE001 - report any read failure to the caller
+            print(str(e), file=sys.stderr)
+            return 2
 
     if args.calibrate:
         try:

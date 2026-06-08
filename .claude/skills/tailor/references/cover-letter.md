@@ -5,8 +5,13 @@ Stash"). Default `/tailor` writes the resume only.
 
 Output: `output/<company>/cover_letter.tex`, compiled to `Khoa_Ngo_cover_letter.pdf` by
 `build_cover_letter.py` (which the save-hook runs automatically when you write the `.tex`).
-Template: `assets/cover_letter.tex`. Voice anchor: `assets/cover_letter_voice.md`. No markdown,
-no pandoc.
+Template: `assets/cover_letter.tex`. No markdown, no pandoc.
+
+**The body is fixed.** `assets/cover_letter.tex` already contains the vetted voice-anchor prose
+(opening hook + IOE + FPT + Local Lens + LinkedIn Outreach — all four stories, never cut). You do
+**not** write or pick paragraphs. Only two things vary per JD: **`<<Company>>`** (recipient +
+salutation) and the single **`<<WHY_COMPANY>>`** paragraph between the
+`% @lint:why-company-start` / `% @lint:why-company-end` sentinels.
 
 ## 1. Company research (sub-agent)
 
@@ -29,29 +34,27 @@ concrete numbers** and **notable specifics** from the company's site.
 - **Bar for "impressive":** specificity + a number — "serving 74,000+ businesses",
   "100M+ monthly users". If the site has nothing usable, the sub-agent says so. **Never fabricate.**
 
-## 2. Compose by filling `assets/cover_letter.tex`
+## 2. Fill the two slots in `assets/cover_letter.tex`
 
-Copy the template to `output/<company>/cover_letter.tex` and fill it:
+Copy the template to `output/<company>/cover_letter.tex` and fill **only**:
 
 - **`% Company insights` comment block** at the top: paste `url_used`, `impressive_numbers`,
   `notable_specifics`. These are LaTeX comments — audit metadata that never renders.
-- **`<<Company>>`** in the recipient + salutation.
-- **Opening paragraph** — 1-line identity hook in voice: junior CompE at FSU (3.9 GPA, ICPC Gold
-  '24, 1st in Div 2 NA South), then "the things I actually want to tell you about are below".
-- **Body paragraph** — ONE project (strongest JD fit, often resume P1), told as a story in voice,
-  mapped to the JD. Not resume-bullet shape.
-- **Closing paragraph** — why THIS company. Name at least one researched fact by its **actual
-  value** ("the 74,000+ businesses already on Stash", not "your impressive customer base").
-  2–3 sentences.
+- **`<<Company>>`** in the recipient line + salutation.
+- **`<<WHY_COMPANY>>`** — the one paragraph between the `% @lint:why-company-start` /
+  `% @lint:why-company-end` sentinels. Why THIS company, 2–3 sentences, in voice. Name at least
+  one researched fact by its **actual value** ("the 74,000+ businesses already on Stash", not
+  "your impressive customer base").
 
-Read `assets/cover_letter_voice.md` first — self-deprecating, specific, narrative; never corporate.
-Date is `\today` (renders at compile).
+Leave the four body stories exactly as they are. Date is `\today` (renders at compile).
 
 ## 3. Honesty audit
 
-Run `references/honesty-rules.md`, plus the cover-letter rule: every company fact in the closing
-traces 1:1 to the sub-agent's output. If research came up empty, keep the insights block as
-`% [none found from <url>]` and write the closing as a one-line
+`lint_honesty.py --cover` runs automatically on save and scans **only** the why-company paragraph
+(the fixed body is exempt — it legitimately attributes the teammate's "XGBoost … 93%"). On top of
+that linter, every company fact in `<<WHY_COMPANY>>` must trace 1:1 to the sub-agent's output — no
+inflating "74,000+" to "75,000+". If research came up empty, keep the insights block as
+`% [none found from <url>]` and write the slot as a one-line
 `<<[TODO: Khoa — why this company]>>` placeholder; flag it in the run summary. Never a generic
 "I'm excited about your innovative mission".
 

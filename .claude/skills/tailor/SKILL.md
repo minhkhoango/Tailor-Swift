@@ -26,41 +26,62 @@ locked; wording barely moves.
 ## Files
 ```
 jobDescription/<company>.txt          input JD
-output/<company>/resume.tex           you write this (1 page)
-output/<company>/cover_letter.tex     only with --cover
+output/<company>/resume.slots.json    YOU WRITE THIS — the slot file (which bullets, by id)
+output/<company>/resume.tex           assembled for you from the slots (don't hand-edit)
+output/<company>/cover_letter.tex     only with --cover (fixed body + <<WHY_COMPANY>>)
+dataset/<company>/                     git-tracked training pairs (resume.ai.tex / resume.final.tex)
 .claude/skills/tailor/
-  assets/master_resume.tex            THE source of truth — every project + every bullet
-  assets/cover_letter.tex             Jake-style cover-letter template
-  assets/cover_letter_voice.md        cover-letter voice anchor
+  assets/master_resume.tex            THE source of truth — keyed (@key) blocks + every bullet
+  assets/cover_letter.tex             cover-letter template — body fixed, only <<WHY_COMPANY>> varies
   references/tailoring-guide.md        full per-JD pipeline — READ THIS before composing
-  references/honesty-rules.md          the audit you run before saving
+  references/honesty-rules.md          the audit (the mechanical half runs as lint_honesty.py)
   references/keywords.md               ALLOWED / FORBIDDEN keyword ledger (by category)
   references/cover-letter.md           cover-letter pipeline (only for --cover)
-  scripts/check_resume_fit.py          deterministic fit checker (fires automatically on save)
+  scripts/assemble_resume.py           slots + master -> resume.tex (fires automatically on save)
+  scripts/check_resume_fit.py          deterministic fit + skill-row-wrap checker (auto on save)
+  scripts/lint_honesty.py              deterministic FORBIDDEN/number/either-or linter (auto on save)
+  scripts/score_projects.py            advisory JD-keyword overlap ranker (run at selection time)
+watch.py                               run once: live PDF rebuild + dataset/*.final.tex on save
 ```
+
+## One-time local setup
+- **Watcher (live PDF + human-final snapshots):** start it once and leave it running —
+  `.venv/bin/python watch.py` (after `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`).
+- **AI-baseline capture (Stop hook):** add this to `.claude/settings.local.json` so the AI's first
+  version is snapshotted to `dataset/<co>/resume.ai.tex` when each tailor turn ends:
+  ```json
+  { "hooks": { "Stop": [ { "hooks": [ { "type": "command",
+    "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/skills/tailor/scripts/capture_baseline.py\"" } ] } ] } }
+  ```
 
 ## Pipeline (per JD)
 Full detail in `references/tailoring-guide.md`. In short:
 
 1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
-2. **Select projects** — score the 5 pool projects; keep the top few (usually 3) that fill the
-   page, in **chronological order, most recent first**. Both experiences are always kept, IOE
-   above FPT. Selection is project-granular: keep a chosen project's bullets together.
-3. **Compose `output/<company>/resume.tex`** — copy preamble/heading/education verbatim from
-   `master_resume.tex`; embed the chosen experiences + projects with bullets kept faithful
-   (light keyword reword only); rebuild Technical Skills from `references/keywords.md`
-   (drop/rename/add categories, up to **5** rows, each one rendered line).
-4. **Honesty audit** — run `references/honesty-rules.md` before saving; fix every trigger.
-5. **Save → auto fit-check.** Writing `resume.tex` fires a hook that recompiles the PDF and runs
-   the fit checker, returning a fit report as context. **You never run the checker yourself.**
-6. **React to the fit report** until it reads `OK`:
-   - `UNDERFULL` (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet to a
-     chosen project. Once all bullets + 5 skill rows are in and it's still under, accept it and stop.
-   - `SPILLOVER` / orphan `FLAG` — lightly reword the flagged bullet so its last line isn't ≤4
-     words (*must* be fixed). Never cut a number fact to do it.
+2. **Select projects** — run `scripts/score_projects.py <company>` for an advisory ranked overlap
+   table; keep the top few (usually 3) that fill the page, **chronological, most recent first**.
+   Both experiences always kept, IOE above FPT. Selection is project-granular.
+3. **Write `output/<company>/resume.slots.json`** — the slot file: which experiences/projects by
+   `@key`, which bullets by `id` (verbatim) or `text` (light reword), `emph` for project stack
+   lines, and the `skills` rows (up to 5) rebuilt from `references/keywords.md`. You do **not**
+   hand-write the `.tex` — the assembler builds it. Schema in `references/tailoring-guide.md`.
+4. **Honesty audit** — the mechanical rules run as `lint_honesty.py` (below); you still apply the
+   judgment rules in `references/honesty-rules.md` (category relabeling, IOE/FPT attribution).
+5. **Save → auto assemble + fit + honesty.** Writing `resume.slots.json` fires a hook that runs
+   `assemble_resume.py` → `build_resume.py` → `check_resume_fit.py` → `lint_honesty.py` and returns
+   the combined report. **You never run these yourself.** (A direct `resume.tex` edit is overwritten
+   on the next assemble — edit the slot.)
+6. **React to the report by editing the slot** until it reads `OK` + `honesty: clean`:
+   - `UNDERFULL` (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet id.
+     Once all bullets + 5 skill rows are in and it's still under, accept it and stop.
+   - `SPILLOVER` / orphan `FLAG` — replace the flagged bullet id with a lightly-reworded `text` so
+     its last line isn't ≤4 words (*must* be fixed). Never cut a number fact.
    - `OVERFULL` / `MULTIPAGE` — drop the lowest-JD-scoring project. Never drop education, header,
-     or either experience.
-7. **Cover letter** — only with `--cover`. See `references/cover-letter.md`.
+     or either experience. A skill row tagged `WRAP` — prune its lowest-signal entries.
+   - `honesty: FLAGS [...]` — fix each (forbidden token, untraceable number, both PR-Pilot bullets,
+     unsupported "agentic").
+7. **Cover letter** — only with `--cover`. Fill `<<Company>>` + the `<<WHY_COMPANY>>` slot; the
+   body is fixed. See `references/cover-letter.md`.
 8. **Report** — one ~5-line block per JD (below). No `reasoning.md` is written anymore.
 
 ## Per-JD summary (print to terminal)
