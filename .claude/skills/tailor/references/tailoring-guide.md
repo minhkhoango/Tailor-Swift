@@ -31,7 +31,9 @@ anti_signals:  [things the JD warns away from, if any]
 
 ## Step 2 — Select projects (project-granular)
 
-- Score each of the 5 pool projects by JD-keyword matches in its `% [tag]` lines and bullet text.
+- Run `python3 scripts/score_projects.py <company>` for a deterministic ranked JD-keyword-overlap
+  table (it reads each project's bullets + `% Default/Other defensible stack` comments by `@key`).
+  It's advisory — sanity-check your read of the JD against it; the final pick is yours.
 - Keep the **top few that fill the page — usually 3**. The fit checker (Step 6) decides how many
   actually fit; start with your best 3 and let the loop add/drop.
 - **Tiebreak:** prefer the project with the stronger numbers (installs, latency, users, accuracy).
@@ -45,57 +47,81 @@ anti_signals:  [things the JD warns away from, if any]
   (more JD-relevant first).
 - Experiences: **IOE above FPT** (Nov 2025 vs May–Jul 2025), always both present.
 
-## Step 3 — Compose `output/<company>/resume.tex`
+## Step 3 — Write `output/<company>/resume.slots.json` (not the `.tex`)
 
-Copy these **verbatim** from `assets/master_resume.tex`:
-- Preamble + custom commands + `\begin{document}`.
-- Heading (name + contacts).
-- Education — including "GPA: 3.9/4.0, Honors Program" (real) and the ICPC "1st in Division 2" bullet.
+You **do not** hand-write the resume `.tex`. You write a small slot file; `scripts/assemble_resume.py`
+copies the preamble/heading/Education verbatim from `assets/master_resume.tex`, pulls the bullets
+you reference, and emits `output/<company>/resume.tex` for you. **Edit the slot, not the tex** —
+a direct `.tex` edit is overwritten on the next assemble.
 
-Then embed the chosen content:
+### Slot schema
+```json
+{
+  "company": "Apple",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"text": "lightly reworded bullet ..."}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "projects": [
+    {"key": "local_lens", "emph": "TypeScript, React, AWS", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "pr_pilot", "bullets": [{"id": 1}, {"id": 3}]}
+  ],
+  "skills": [["Languages", "Python, TypeScript, C++, SQL"], ["AI/ML", "PyTorch, Claude API"]]
+}
+```
+- **`key`** — the `% @key:` of a block in `master_resume.tex` (`ioe`, `fpt`, `local_lens`,
+  `linkedin_outreach`, `p4_stack`, `pr_pilot`, `autoly`).
+- **`{"id": n}`** — pull `\resumeItem` **#n** of that block **verbatim** (1-based, master order).
+  Prefer ids: byte-identical bullets are honesty-safe by construction.
+- **`{"text": "..."}`** — a lightly reworded bullet (see "light reword" below). Use only when an
+  id won't carry the exact JD keyword you need.
+- **`emph`** (projects only) — replaces the heading's first `\emph{}` (the tech-stack line).
+  Reorder JD-relevant tech first, prune irrelevant items, add a tech that appears in a kept bullet.
+  Omit to keep the master default. Dates are **never** in the slot — always taken verbatim.
+- **`"force": true`** (top-level, optional) — only for a deliberate **re-tailor** of a company that
+  already has an AI baseline in `dataset/<co>/`. Without it the assembler refuses, so it can't
+  silently overwrite hand-edits; with it, the prior pair is archived to `dataset/<co>/.prev-<ts>/`.
 
-**Experiences (both, IOE first).** Keep bullets faithful; light keyword reword only.
-- IOE: Khoa owned the **gateway**, not the pre-existing Mastra agent — never claim the agent.
-- FPT: never reinstate the 86%→93% XGBoost jump (a teammate's work).
+**Experiences (both, IOE first):** keep both. IOE — Khoa owned the **gateway**, not the
+pre-existing Mastra agent. FPT — never reinstate the 86%→93% XGBoost jump (a teammate's).
 
-**Projects (chronological).** For each:
-- The **lead bullet** (first `\resumeItem` in that project's master block) always leads and is
-  always kept; a light JD-vocabulary reword is fine. Order the rest relevance-first.
-- **PR Pilot** has a long-form and a short-form cold-email bullet — use **one**, never both
-  (long form for entrepreneurship/user-research JDs, short form for ATS-keyword JDs).
-- **Tech-stack `\emph{}` line:** reorder JD-relevant tech first, prune irrelevant items, and you
-  may add a tech that actually appears in a kept bullet (e.g. add `AWS` when a kept Local Lens
-  bullet mentions S3 + CloudFront).
-- **No bold or other in-bullet emphasis.** Hierarchy stays at section/project level.
+**Projects (chronological):** the **lead bullet** (id 1) always leads and is always kept.
+**PR Pilot** has a long-form (id 2) and short-form (id 3) cold-email bullet — list **one**, never
+both (long for entrepreneurship/user-research JDs, short for ATS-keyword JDs; the linter flags
+both). **No bold / in-bullet emphasis.**
 
-**What "light reword" means.** Swap a verb to the JD's verb; reframe in JD vocabulary when the
-underlying mechanic still holds (`Random Forest` → `classification model` if the JD says
-"classification"); insert an exact JD keyword where it fits. **Not** allowed: lengthening
-a bullet without matching a keyword or adding meaning, restructuring it heavily, or changing 
-any number/date/tech/company. When unsure a fact survives a reword, keep the original wording.
+**What "light reword" means** (for `{"text": ...}`). Swap a verb to the JD's verb; reframe in JD
+vocabulary when the underlying mechanic still holds (`Random Forest` → `classification model` if
+the JD says "classification"); insert an exact JD keyword where it fits. **Not** allowed:
+lengthening without adding meaning, restructuring heavily, or changing any number/date/tech/company.
+When unsure a fact survives a reword, use the verbatim id instead.
 
-## Step 4 — Technical Skills (rebuild from `references/keywords.md`)
+## Step 4 — Technical Skills (the `skills` rows in the slot)
 
-- Drop any skill the JD has no signal for.
-- Reorder JD-relevant skills first.
+The `"skills"` array is a list of `[category, content]` rows, rebuilt per JD from
+`references/keywords.md`:
+- Drop any skill the JD has no signal for; reorder JD-relevant skills first.
 - Rename / add categories to fit the JD (e.g. `Hardware`, `Backend`, `Data`, `Frontend & Browser`,
   rename `AI/ML` → `ML & Modeling`). Default 4 are not sacred.
 - Add aggressively but only from the ALLOWED ledger, and only when the JD signals it. Insert
   **exact** JD keyword strings where defensible (ATS rewards verbatim matches).
-- **Up to 5 category rows.** Each `\textbf{Category}{: ...}` must fit on **one** rendered line
-  (~95–105 characters of content after the label). If a row wraps, prune its lowest-signal entries.
+- **Up to 5 rows** (the assembler errors above 5). Each row must fit on **one** rendered line
+  (~95–105 characters after the label). If the fit check tags a row `WRAP`, prune its lowest-signal
+  entries. Escape `&` as `\\&` in JSON (e.g. `"Frameworks \\& Libraries"`).
 
 ## Step 5 — Honesty audit
 
 Run `references/honesty-rules.md` against your draft **before** saving. Fix every trigger and note
 the catches in the run summary.
 
-## Step 6 — Save, then react to the automatic fit check
+## Step 6 — Save the slot, then react to the automatic fit + honesty check
 
-Writing `output/<company>/resume.tex` fires a `PostToolUse` hook that recompiles the PDF and runs
-`scripts/check_resume_fit.py`, returning a fit report as context. **You do not invoke the checker.**
-Read the report's `verdict` + `fullness` and act, re-saving to re-trigger the check (cap ~3 passes,
-then report the final state):
+Writing `output/<company>/resume.slots.json` fires a `PostToolUse` hook that runs the whole chain
+for you: `assemble_resume.py` (→ `resume.tex`) → `build_resume.py` (→ PDF) →
+`scripts/check_resume_fit.py` (fit + skill-row WRAP) → `scripts/lint_honesty.py` (deterministic
+honesty flags). It returns the combined report as context. **You do not invoke any of these.**
+Read the report's `verdict` + `fullness` + `honesty:` line and act by **editing the slot file**
+and re-saving it (cap ~3 passes, then report the final state):
 
 - **`UNDERFULL`** (fullness < 0.95) — add a whole JD-relevant project, or one more faithful pool
   bullet to a chosen project. Prefer a real pool bullet over padding. If all bullets for the chosen
@@ -106,19 +132,22 @@ then report the final state):
   Never delete a fact to fix wrap. `SKIP`-tagged bullets are low-confidence matches, not targets.
 - **`OVERFULL`** (fullness > 1.0) / **`MULTIPAGE`** — drop the lowest-JD-scoring project (then the
   lowest bullet of the lowest project). Never drop education, header, or either experience.
-- **`OK`** — done.
+- **`WRAP`** on a skill row — trim that row's lowest-signal entries until it's one line.
+- **`honesty: FLAGS [...]`** — fix each one (it's advisory but it's catching a real slip: a
+  forbidden token, an untraceable number, both PR-Pilot bullets, or "agentic" with no JD support).
+- **`OK`** + `honesty: clean` — done.
 
 ## Step 7 — Per-JD summary
 
 Print the ~5-line block from `SKILL.md`. No `reasoning.md` file is written.
 
-## Quick reference: verbatim vs. per-JD
+## Quick reference: verbatim vs. per-JD (all driven by the slot file)
 
-| Section | Per-JD action |
+| Section | How the assembler handles it / what you put in the slot |
 |---|---|
-| Preamble, `\begin{document}`, heading | Verbatim from master |
-| Education (incl. Honors Program + ICPC) | Verbatim from master |
-| Experience (IOE, FPT — both, IOE first) | Keep both; light keyword reword only |
-| Projects (usually 3, chronological) | Select whole projects; light reword; pull from master |
-| Technical Skills | Rebuild from keywords.md (≤5 rows) |
-| `\end{document}` | Verbatim |
+| Preamble, `\begin{document}`, heading | Verbatim from master (automatic; not in the slot) |
+| Education (incl. Honors Program + ICPC) | Verbatim from master (automatic; not in the slot) |
+| Experience (IOE, FPT — both, IOE first) | `experiences`: both keys; bullets by `id` (verbatim) or `text` (light reword) |
+| Projects (usually 3, chronological) | `projects`: whole projects by key; `emph` for the stack line; bullets by `id`/`text` |
+| Technical Skills | `skills`: up to 5 `[category, content]` rows, rebuilt from keywords.md |
+| `\end{document}` | Verbatim (automatic) |

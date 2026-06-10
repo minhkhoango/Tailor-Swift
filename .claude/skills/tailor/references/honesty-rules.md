@@ -4,6 +4,13 @@ Run this audit on every draft **before** saving. Reject and fix your own draft i
 fires, then note what you caught in the run summary. A flagged-and-fixed trigger is never
 penalized; a buried stretch discovered later is the only real failure.
 
+> **What the linter already checks for you.** `scripts/lint_honesty.py` runs automatically on
+> save and deterministically catches the mechanical rules below: the FORBIDDEN tech list (rule 2),
+> RAG (rule 5), scale claims (rule 7), buzzwords (rule 8), "agentic" vs. the JD (rule 9), numbers
+> not traceable to the master (rule 1), and the PR-Pilot either/or bullet. Its module constants
+> are the single source of truth for those lists. The **judgment** rules — category relabeling
+> (rule 4), IOE/FPT attribution, the closed pool (rule 10) — are yours; the linter can't see them.
+
 ## Hard rejects (resume and cover letter)
 
 1. **No invented metrics.** Every number / percentage / date / install / latency / accuracy
@@ -42,7 +49,10 @@ whether a skill is defensible, **skip it and note the gap**. Less, not more.
 
 ## Cover-letter-specific (only with `--cover`)
 
-Every company fact in the closing must trace 1:1 to what the research sub-agent returned. No
-inflating "74,000+" to "75,000+", no merging two facts into a vaguer one. If research came up
-empty, write a `[TODO: Khoa — why this company]` placeholder rather than a generic "I admire your
-innovative mission" line. See `references/cover-letter.md`.
+The cover body is **fixed** (vetted voice-anchor prose); you only write the `<<WHY_COMPANY>>`
+paragraph. `lint_honesty.py --cover` scans that paragraph alone — the body is exempt (it
+legitimately attributes the teammate's "XGBoost … 93%"). Every company fact in `<<WHY_COMPANY>>`
+must trace 1:1 to what the research sub-agent returned. No inflating "74,000+" to "75,000+", no
+merging two facts into a vaguer one. If research came up empty, write a
+`[TODO: Khoa — why this company]` placeholder rather than a generic "I admire your innovative
+mission" line. See `references/cover-letter.md`.

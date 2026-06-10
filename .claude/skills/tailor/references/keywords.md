@@ -67,6 +67,12 @@ Intel Quartus Prime Lite
 
 ## FORBIDDEN (never put on the page)
 
+> The machine-checkable FORBIDDEN list is enforced by
+> `scripts/lint_honesty.py` (its module constants are the single source of
+> truth; the save-hook runs it automatically). This list is the human-readable
+> mirror — keep the two in sync. The linter catches the mechanical cases; the
+> judgment cases (category relabeling, attribution) stay with you.
+
 - **Tech Khoa hasn't touched:** Java, Kubernetes, Rust, Go, .NET, Angular, Vue,
   Solana, Spring. (If a genuinely defensible source ever emerges, move it up and
   note the source — until then, off-limits.)

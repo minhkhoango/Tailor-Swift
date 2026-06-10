@@ -8,13 +8,16 @@ locked to source.
 
 1. Drop a job description into `jobDescription/<Company>.txt`.
 2. Run the **`/tailor`** agent skill (in [Claude Code](https://claude.com/claude-code)). It reads
-   the JD, **selects** the most relevant projects from one master resume, **lightly rewords** them
-   for the JD's keywords (never a heavy rewrite, never shorter), rebuilds the skills section, and
-   writes `output/<Company>/resume.tex`.
-3. Saving that `.tex` fires a **save-hook** that compiles the PDF and runs a deterministic
-   fit checker; Claude packs the page to 95–100% based on its report.
-4. With `--cover`, it also writes `output/<Company>/cover_letter.tex` (Jake-style LaTeX,
-   closing personalized via light web research).
+   the JD and **selects** the most relevant projects from one master resume, then writes a small
+   `output/<Company>/resume.slots.json` — which experiences/projects, which bullets (by `id` for
+   a verbatim copy, or `text` for a light reword), and the skills rows.
+3. Saving the slot file fires a **save-hook** that runs the whole deterministic chain with no
+   further LLM steps: `assemble_resume.py` builds `resume.tex` (preamble, headings, and `id`-bullets
+   pulled byte-identical from the master, so verbatim bullets are honesty-safe by construction),
+   then it compiles the PDF, runs the fit checker, and runs the **honesty linter**
+   (`scripts/lint_honesty.py`). Claude packs the page to 95–100% based on the combined report.
+4. With `--cover`, it also writes `output/<Company>/cover_letter.tex` (Jake-style LaTeX, fixed
+   body with the `why this company` paragraph personalized via light web research).
 
 The core rule: **wording barely moves, facts never move.** Every number, date, and technology
 traces 1:1 back to source. The honesty audit lives in `.claude/skills/tailor/references/`.
@@ -24,22 +27,29 @@ traces 1:1 back to source. The honesty audit lives in `.claude/skills/tailor/ref
 ```
 jobDescription/                  input JDs, <Company>.txt
 output/<Company>/                generated, one folder per company
-  resume.tex                     tailored resume source (1 page)
+  resume.slots.json              the LLM's pick (keys + bullet ids/rewords + skills)
+  resume.tex                     assembled from the slot file (1 page)
   Khoa_Ngo_resume.pdf            compiled, verified one page
   cover_letter.tex               only when --cover was used
   Khoa_Ngo_cover_letter.pdf
+dataset/<Company>/               AI baseline + human-edited finals (preference data)
 build_resume.py                  compile output/*/resume.tex -> PDF
 build_cover_letter.py            compile output/*/cover_letter.tex -> PDF
-requirements.txt                 pip deps (pdfplumber) for the fit checker
+watch.py                         live PDF rebuild + dataset capture during human edits
+requirements.txt                 pip deps (pdfplumber, watchdog)
 pyrightconfig.json               Pyright strict mode for the .py scripts
 .claude/skills/tailor/
   SKILL.md                       the /tailor skill (commands + pipeline overview)
   assets/master_resume.tex       THE source of truth — every project + every bullet
-  assets/cover_letter.tex        Jake-style cover-letter template
-  assets/cover_letter_voice.md   cover-letter voice anchor
+  assets/cover_letter.tex        Jake-style cover-letter template (fixed body)
   references/                    tailoring-guide, honesty-rules, keywords, cover-letter
+  scripts/tex_util.py            shared LaTeX parsing (brace matcher, master parser)
+  scripts/assemble_resume.py     slot file -> resume.tex (verbatim-by-id bullets)
+  scripts/score_projects.py      rank master projects against a JD
   scripts/check_resume_fit.py    deterministic page-fullness + orphan-line checker
-  scripts/post_save_build.py     PostToolUse hook: compile + fit-check on save
+  scripts/lint_honesty.py        deterministic honesty linter (forbidden tech, number trace)
+  scripts/capture_baseline.py    snapshot AI output into dataset/ before human edits
+  scripts/post_save_build.py     PostToolUse hook: assemble + compile + fit + honesty
 ```
 
 ## Usage
@@ -70,6 +80,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # one-time
 ## The save-hook
 
 `.claude/settings.json` (or `settings.local.json`) wires a `PostToolUse` hook to
-`scripts/post_save_build.py`: whenever Claude writes `output/<Company>/resume.tex` (or
-`cover_letter.tex`), the PDF is recompiled and the resume is fit-checked, with the verdict fed
-back automatically. Open `/hooks` once (or restart) after first install to activate it.
+`scripts/post_save_build.py`: whenever Claude writes `output/<Company>/resume.slots.json`, the
+resume is assembled, compiled, fit-checked, and honesty-linted, with the combined verdict fed back
+automatically (a direct `resume.tex` write skips the assemble step; `cover_letter.tex` is compiled,
+page-checked, and honesty-linted). Open `/hooks` once (or restart) after first install to activate it.

@@ -6,3 +6,7 @@
 # which check_resume_fit.py uses to measure page fullness and detect
 # short ("spillover") last lines deterministically.
 pdfplumber>=0.11
+
+# watchdog powers watch.py: the live PDF-rebuild + dataset/*.final.tex watcher
+# for the human-edit phase.
+watchdog>=4.0
