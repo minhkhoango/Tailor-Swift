@@ -77,6 +77,17 @@ class Assembler(unittest.TestCase):
         with self.assertRaises(A.AssembleError):
             A._skills_section([["a", "b"]] * 6)
 
+    def test_experiences_both_in_order_ok(self) -> None:
+        A._validate_experiences([{"key": "ioe"}, {"key": "fpt"}], BLOCKS)  # no raise
+
+    def test_experiences_missing_one_raises(self) -> None:
+        with self.assertRaises(A.AssembleError):
+            A._validate_experiences([{"key": "ioe"}], BLOCKS)
+
+    def test_experiences_wrong_order_raises(self) -> None:
+        with self.assertRaises(A.AssembleError):
+            A._validate_experiences([{"key": "fpt"}, {"key": "ioe"}], BLOCKS)
+
 
 class Linter(unittest.TestCase):
     def test_forbidden_tech_word_boundary(self) -> None:
@@ -96,6 +107,20 @@ class Linter(unittest.TestCase):
 
     def test_clean_text(self) -> None:
         self.assertEqual(L.forbidden_hits("Shipped a Chrome extension with React"), [])
+
+    def test_traceable_numbers_excludes_preamble_constants(self) -> None:
+        # Fallback scope (no slot file) = every master block's bullets + headings.
+        nums = L.traceable_numbers("__no_such_company__", BLOCKS)
+        # Geometry constants live only in the preamble -> must NOT be traceable.
+        self.assertNotIn("0.15", nums)
+        self.assertNotIn("0.97", nums)
+        # A genuine bullet metric (from a master block) IS traceable.
+        any_bullet_num = set()
+        for blk in BLOCKS.values():
+            for bullet in blk.bullets:
+                any_bullet_num |= set(T.numbers_in(bullet))
+        self.assertTrue(any_bullet_num)
+        self.assertTrue(any_bullet_num <= nums)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -48,6 +49,36 @@ PRPILOT_SHORT_SIG = "Validated by cold-emailing"
 
 WHY_START = "% @lint:why-company-start"
 WHY_END = "% @lint:why-company-end"
+
+
+def traceable_numbers(company: str, blocks: dict[str, tex_util.Block]) -> set[str]:
+    """Numbers an output bullet may legitimately carry: those in the master
+    bullets + headings of the *selected* experiences/projects.
+
+    Scoped from ``output/<company>/resume.slots.json`` when present (falls back
+    to every master block otherwise). This deliberately EXCLUDES the master
+    preamble geometry constants (0.15, 0.97, 1.0, font/margin sizes) and the
+    contact line's phone number -- numbers a fabricated metric must not be able
+    to borrow -- and excludes projects that weren't selected, so a figure unique
+    to an unshipped project is flagged rather than waved through.
+    """
+    keys: list[str] | None = None
+    slots_path = OUTPUT / company / "resume.slots.json"
+    if slots_path.exists():
+        try:
+            slots = json.loads(slots_path.read_text(encoding="utf-8"))
+            picked = [e.get("key") for e in slots.get("experiences", [])]
+            picked += [p.get("key") for p in slots.get("projects", [])]
+            keys = [k for k in picked if k in blocks]
+        except (json.JSONDecodeError, OSError):
+            keys = None
+    chosen = [blocks[k] for k in keys] if keys else list(blocks.values())
+    nums: set[str] = set()
+    for blk in chosen:
+        nums |= set(tex_util.numbers_in(blk.heading))
+        for bullet in blk.bullets:
+            nums |= set(tex_util.numbers_in(bullet))
+    return nums
 
 
 def forbidden_hits(text: str) -> list[str]:
@@ -82,9 +113,12 @@ def lint_resume(company: str) -> list[str]:
     if re.search(r"\bagent(ic)?\b", scan, re.IGNORECASE) and "agent" not in jd_low:
         flags.append("'agent/agentic' used but JD never mentions it")
 
-    # Rule numbers: every number in an output bullet must trace to the master.
-    master = MASTER.read_text(encoding="utf-8")
-    master_nums = set(tex_util.numbers_in(master))
+    # Rule numbers: every number in an output bullet must trace to a master
+    # bullet/heading of a *selected* block -- not merely appear somewhere in the
+    # file (which would let preamble constants or an unshipped project launder a
+    # fabricated metric).
+    blocks = tex_util.parse_master(MASTER.read_text(encoding="utf-8"))
+    master_nums = traceable_numbers(company, blocks)
     out_nums: set[str] = set()
     for b in bullets:
         out_nums |= set(tex_util.numbers_in(b))

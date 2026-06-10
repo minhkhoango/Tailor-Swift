@@ -74,6 +74,26 @@ def _splice_emph(heading: str, new_emph: str) -> str:
     return f"{heading[:m.start()]}\\emph{{{new_emph}}}{heading[after:]}"
 
 
+def _validate_experiences(exp_specs: list[dict[str, Any]], blocks: dict[str, Block]) -> None:
+    """Enforce the hard invariant: every master experience is kept, in master order.
+
+    ``blocks`` preserves master order, so the experience keys read out of it give
+    the canonical sequence (IOE before FPT). A slot that drops one or flips the
+    order would otherwise assemble a silently-wrong resume with no flag.
+    """
+    required = [k for k, blk in blocks.items() if blk.kind == "experience"]
+    keys = [s.get("key") for s in exp_specs]
+    missing = [k for k in required if k not in keys]
+    if missing:
+        raise AssembleError(
+            f"experiences must keep all of {required} (missing {missing}); "
+            f"both are always kept")
+    ordered = [k for k in keys if k in required]
+    if ordered != required:
+        raise AssembleError(
+            f"experiences must be in master order {required}, got {ordered}")
+
+
 def _entry(spec: dict[str, Any], blocks: dict[str, Block], want_kind: str) -> str:
     key = spec.get("key")
     if key not in blocks:
@@ -123,8 +143,9 @@ def assemble(company: str, force: bool = False) -> Path:
     exp_marker = master.index("%-----------EXPERIENCE-----------")
     preamble = master[doc_start:exp_marker].rstrip() + "\n"
 
-    experiences = "\n\n".join(_entry(e, blocks, "experience")
-                              for e in slots.get("experiences", []))
+    exp_specs = list(slots.get("experiences", []))
+    _validate_experiences(exp_specs, blocks)
+    experiences = "\n\n".join(_entry(e, blocks, "experience") for e in exp_specs)
     projects = "\n\n".join(_entry(p, blocks, "project")
                            for p in slots.get("projects", []))
     skills = _skills_section([list(r) for r in slots.get("skills", [])])
