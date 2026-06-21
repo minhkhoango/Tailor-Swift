@@ -41,6 +41,13 @@ Web Development, React.js, Svelte, Node.js, Browser Extensions, Manifest V3,
 Service Workers, Web Workers, WebGPU, WASM
 - Source: Local Lens (React 19 / TS, MV3 extension, WebGPU/WASM), metriclens (Svelte).
 
+### Design / Media
+Adobe Creative Suite, Adobe Acrobat Pro, Graphic Design, Video Editing,
+ClipChamp, YouTube Studio
+- Source: Khoa-confirmed — Adobe Acrobat Pro in the Creative Suite; graphic/video
+  design work in ClipChamp + YouTube Studio. Render as
+  `Adobe Creative Suite (Acrobat Pro), Graphic Design (ClipChamp, YouTube Studio)`.
+
 ### Data / Analytics
 Data Analysis, data science, Pandas, NumPy, Matplotlib, Seaborn, Jupyter, Excel
 - Source: FPT Telecom data work.
