@@ -15,14 +15,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from pathlib import Path
 
 import tex_util
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
-SKILL_DIR = Path(__file__).resolve().parents[1]
-MASTER = SKILL_DIR / "assets" / "master_resume.tex"
-JOBDESC = REPO_ROOT / "jobDescription"
+from paths import JOBDESC, MASTER, REPO_ROOT
 
 _STOP = {
     "the", "and", "for", "with", "you", "your", "our", "are", "will", "have",

@@ -43,11 +43,8 @@ from tex_util import (  # noqa: E402
     replace_href as _replace_href,
     resume_items as extract_resume_items,
 )
+from paths import OUTPUT
 
-# This script lives at <repo>/.claude/skills/tailor/scripts/check_resume_fit.py,
-# so the repo root (which holds output/) is four parents up.
-REPO_ROOT = Path(__file__).resolve().parents[4]
-OUTPUT = REPO_ROOT / "output"
 JOBNAME = "Khoa_Ngo_resume"
 
 # --- Page geometry (US Letter, points; 1in = 72pt) ---

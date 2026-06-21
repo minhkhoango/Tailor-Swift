@@ -27,10 +27,8 @@ import sys
 import time
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-OUTPUT = REPO_ROOT / "output"
-DATASET = REPO_ROOT / "dataset"
-JOBDESC = REPO_ROOT / "jobDescription"
+from paths import DATASET, JOBDESC, OUTPUT
+
 RESUME_JOBNAME = "Khoa_Ngo_resume"
 STALE_SECONDS = 10 * 60
 

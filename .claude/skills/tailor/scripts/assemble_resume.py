@@ -30,12 +30,7 @@ from typing import Any
 
 import tex_util
 from tex_util import Block, match_braces
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
-SKILL_DIR = Path(__file__).resolve().parents[1]
-MASTER = SKILL_DIR / "assets" / "master_resume.tex"
-OUTPUT = REPO_ROOT / "output"
-DATASET = REPO_ROOT / "dataset"
+from paths import DATASET, MASTER, OUTPUT, REPO_ROOT
 
 MAX_SKILL_ROWS = 5
 # A project's \emph{} tech-stack line carries at most this many comma-separated
