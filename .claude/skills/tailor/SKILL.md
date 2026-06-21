@@ -62,8 +62,9 @@ Full detail in `references/tailoring-guide.md`. In short:
    table; keep the top few (usually 3) that fill the page, **chronological, most recent first**.
    Both experiences always kept, IOE above FPT. Selection is project-granular.
 3. **Write `output/<company>/resume.slots.json`** — the slot file: which experiences/projects by
-   `@key`, which bullets by `id` (verbatim) or `text` (light reword), `emph` for project stack
-   lines, and the `skills` rows (up to 5) rebuilt from `references/keywords.md`. You do **not**
+   `@key`, which bullets by `id` (verbatim) or `text` (light reword — never >4 words longer than
+   its source), `emph` for project stack lines (the **3 most JD-relevant** techs; assembler caps
+   at 3), and the `skills` rows (up to 5) rebuilt from `references/keywords.md`. You do **not**
    hand-write the `.tex` — the assembler builds it. Schema in `references/tailoring-guide.md`.
 4. **Honesty audit** — the mechanical rules run as `lint_honesty.py` (below); you still apply the
    judgment rules in `references/honesty-rules.md` (category relabeling, IOE/FPT attribution).
@@ -73,7 +74,8 @@ Full detail in `references/tailoring-guide.md`. In short:
    on the next assemble — edit the slot.)
 6. **React to the report by editing the slot** until it reads `OK` + `honesty: clean`:
    - `UNDERFULL` (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet id.
-     Once all bullets + 5 skill rows are in and it's still under, accept it and stop.
+     **Never pad a bullet with filler to gain height** (the assembler rejects a reword >4 words
+     past its source). Once all bullets + 5 skill rows are in and it's still under, accept and stop.
    - `SPILLOVER` / orphan `FLAG` — replace the flagged bullet id with a lightly-reworded `text` so
      its last line isn't ≤4 words (*must* be fixed). Never cut a number fact.
    - `OVERFULL` / `MULTIPAGE` — drop the lowest-JD-scoring project. Never drop education, header,

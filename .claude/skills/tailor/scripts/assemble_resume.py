@@ -10,7 +10,9 @@ byte-identical by id, or emitted from the slot's ``text``), then rebuilds the
 Technical Skills section from the slot rows.
 
 Verbatim-by-id bullets are honesty-safe by construction. Errors (unknown key,
-out-of-range id, >5 skill rows) abort with a clear message and a nonzero exit.
+out-of-range id, >5 skill rows, a project stack with >3 items, or a `text`
+reword padded materially longer than its source bullet) abort with a clear
+message and a nonzero exit.
 
 Usage:
     python3 assemble_resume.py <company> [--force]
@@ -36,10 +38,51 @@ OUTPUT = REPO_ROOT / "output"
 DATASET = REPO_ROOT / "dataset"
 
 MAX_SKILL_ROWS = 5
+# A project's \emph{} tech-stack line carries at most this many comma-separated
+# items -- keep only the most relevant ones (the rest is noise on a packed page).
+MAX_PROJECT_STACK = 3
+# A `text` reword may swap a verb or splice in a JD keyword, but it must NOT pad
+# the bullet to grow its rendered height: it may exceed its closest master
+# bullet by at most this many words. Beyond that it reads as filler -- add a real
+# pool bullet/project to fill the page instead. (UNDERFULL is never fixed by
+# lengthening a bullet.) The match floor decides which master bullet it rewords.
+MAX_REWORD_EXTRA_WORDS = 4
+REWORD_MATCH_MIN = 0.40
+
+_WORD_RE = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
 
 
 class AssembleError(Exception):
     """Raised for any unrecoverable slot/master mismatch."""
+
+
+def _reword_tokens(body: str) -> list[str]:
+    """Lowercased word tokens of a bullet body, for length/overlap comparison."""
+    s = tex_util.replace_href(body)
+    s = re.sub(r"\\[A-Za-z]+", " ", s)        # strip control sequences
+    s = s.replace("{", " ").replace("}", " ")
+    return [t.lower() for t in _WORD_RE.findall(s)]
+
+
+def _closest_master_bullet(text_tokens: list[str], block: Block) -> tuple[float, int]:
+    """Best (jaccard_overlap, word_count) over the block's master bullets.
+
+    The reworded ``text`` is meant to be a light reword of one master bullet;
+    this finds which one (highest token-set overlap) and returns that master
+    bullet's length so the caller can reject a reword that pads it taller.
+    """
+    tset = set(text_tokens)
+    best_ratio = 0.0
+    best_len = 0
+    for raw in block.bullets:
+        mtoks = _reword_tokens(raw)
+        mset = set(mtoks)
+        if not mset:
+            continue
+        ratio = len(tset & mset) / len(tset | mset)
+        if ratio > best_ratio:
+            best_ratio, best_len = ratio, len(mtoks)
+    return best_ratio, best_len
 
 
 def _bullet_tex(spec: dict[str, Any], block: Block) -> str:
@@ -52,6 +95,15 @@ def _bullet_tex(spec: dict[str, Any], block: Block) -> str:
         body = block.bullets[i - 1].strip()
     elif "text" in spec:
         body = str(spec["text"]).strip()
+        toks = _reword_tokens(body)
+        ratio, master_len = _closest_master_bullet(toks, block)
+        if ratio >= REWORD_MATCH_MIN and len(toks) - master_len > MAX_REWORD_EXTRA_WORDS:
+            raise AssembleError(
+                f"{block.key}: reworded bullet pads its source by "
+                f"{len(toks) - master_len} words ({len(toks)} vs master {master_len}); "
+                f"a reword may add at most {MAX_REWORD_EXTRA_WORDS}. Don't lengthen a "
+                f"bullet to fill the page -- use the verbatim id, trim the reword, or "
+                f"add a whole pool bullet/project instead.")
     else:
         raise AssembleError(f"{block.key}: each bullet needs an 'id' or 'text' key")
     return f"        \\resumeItem{{{body}}}"
@@ -72,6 +124,28 @@ def _splice_emph(heading: str, new_emph: str) -> str:
         return heading
     _, after = match_braces(heading, m.end() - 1)
     return f"{heading[:m.start()]}\\emph{{{new_emph}}}{heading[after:]}"
+
+
+def _emph_inner(heading: str) -> str | None:
+    """Inner text of the heading's first \\emph{...}, or None if it has none."""
+    m = re.search(r"\\emph\s*\{", heading)
+    if not m:
+        return None
+    inner, _ = match_braces(heading, m.end() - 1)
+    return inner
+
+
+def _validate_stack(key: str, heading: str) -> None:
+    """A project's tech-stack \\emph{} line may list at most MAX_PROJECT_STACK items."""
+    inner = _emph_inner(heading)
+    if inner is None:
+        return
+    items = [p.strip() for p in inner.split(",") if p.strip()]
+    if len(items) > MAX_PROJECT_STACK:
+        raise AssembleError(
+            f"{key}: tech stack has {len(items)} items "
+            f"({', '.join(items)}); keep the {MAX_PROJECT_STACK} most JD-relevant "
+            f"and set 'emph' in the slot accordingly.")
 
 
 def _validate_experiences(exp_specs: list[dict[str, Any]], blocks: dict[str, Block]) -> None:
@@ -102,8 +176,10 @@ def _entry(spec: dict[str, Any], blocks: dict[str, Block], want_kind: str) -> st
     if block.kind != want_kind:
         raise AssembleError(f"{key!r} is a {block.kind}, not a {want_kind}")
     heading = block.heading
-    if want_kind == "project" and spec.get("emph"):
-        heading = _splice_emph(heading, str(spec["emph"]))
+    if want_kind == "project":
+        if spec.get("emph"):
+            heading = _splice_emph(heading, str(spec["emph"]))
+        _validate_stack(key, heading)
     bullets = _bullets_block(list(spec.get("bullets", [])), block)
     return f"    {heading}\n{bullets}"
 

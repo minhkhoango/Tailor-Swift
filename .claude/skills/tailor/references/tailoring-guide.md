@@ -76,8 +76,10 @@ a direct `.tex` edit is overwritten on the next assemble.
 - **`{"text": "..."}`** — a lightly reworded bullet (see "light reword" below). Use only when an
   id won't carry the exact JD keyword you need.
 - **`emph`** (projects only) — replaces the heading's first `\emph{}` (the tech-stack line).
-  Reorder JD-relevant tech first, prune irrelevant items, add a tech that appears in a kept bullet.
-  Omit to keep the master default. Dates are **never** in the slot — always taken verbatim.
+  Keep the **3 most JD-relevant** items, most-relevant first; drop the rest (a tech that appears
+  in a kept bullet is a good pick). **Hard cap: 3 items** — the assembler errors on 4+, whether
+  from your `emph` or a master default. Omit `emph` to keep the master default (all are ≤3).
+  Dates are **never** in the slot — always taken verbatim.
 - **`"force": true`** (top-level, optional) — only for a deliberate **re-tailor** of a company that
   already has an AI baseline in `dataset/<co>/`. Without it the assembler refuses, so it can't
   silently overwrite hand-edits; with it, the prior pair is archived to `dataset/<co>/.prev-<ts>/`.
@@ -94,6 +96,8 @@ both). **No bold / in-bullet emphasis.**
 vocabulary when the underlying mechanic still holds (`Random Forest` → `classification model` if
 the JD says "classification"); insert an exact JD keyword where it fits. **Not** allowed:
 lengthening without adding meaning, restructuring heavily, or changing any number/date/tech/company.
+A reword stays at roughly its source length — the assembler **rejects** a `text` that runs more
+than **4 words longer** than the master bullet it rewords (that's filler padding, not a reword).
 When unsure a fact survives a reword, use the verbatim id instead.
 
 ## Step 4 — Technical Skills (the `skills` rows in the slot)
@@ -124,9 +128,11 @@ Read the report's `verdict` + `fullness` + `honesty:` line and act by **editing 
 and re-saving it (cap ~3 passes, then report the final state):
 
 - **`UNDERFULL`** (fullness < 0.95) — add a whole JD-relevant project, or one more faithful pool
-  bullet to a chosen project. Prefer a real pool bullet over padding. If all bullets for the chosen
-  projects + both experiences + 5 skill rows are already in and it's *still* < 0.95, that is
-  **acceptable** — stop and note it.
+  bullet to a chosen project. **Never lengthen a bullet with filler to grow its height** — the
+  assembler rejects a `text` reword that runs >4 words past its source. The only honest way to fill
+  the page is *more pool content*, never *padded content*. If all bullets for the chosen projects +
+  both experiences + 5 skill rows are already in and it's *still* < 0.95, that is **acceptable** —
+  stop and note it.
 - **`SPILLOVER`** / a bullet tagged **`FLAG`** — its last wrapped line is ≤4 words. Lightly reword
   that bullet so the last line carries more words (a **≤4-word** dangling line *must* be fixed).
   Never delete a fact to fix wrap. `SKIP`-tagged bullets are low-confidence matches, not targets.
