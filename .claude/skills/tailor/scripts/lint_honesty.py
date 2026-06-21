@@ -23,15 +23,9 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
 
 import tex_util
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
-SKILL_DIR = Path(__file__).resolve().parents[1]
-MASTER = SKILL_DIR / "assets" / "master_resume.tex"
-OUTPUT = REPO_ROOT / "output"
-JOBDESC = REPO_ROOT / "jobDescription"
+from paths import JOBDESC, MASTER, OUTPUT, REPO_ROOT
 
 # --- FORBIDDEN list (the one source of truth) ------------------------------- #
 # Case-sensitive, word-boundary tech names with no defensible source.

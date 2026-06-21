@@ -21,12 +21,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-OUTPUT = REPO_ROOT / "output"
-VENV_PY = REPO_ROOT / ".venv" / "bin" / "python"
-SCRIPTS = REPO_ROOT / ".claude" / "skills" / "tailor" / "scripts"
+from paths import OUTPUT, REPO_ROOT, SCRIPTS, VENV_PY
+
 CHECKER = SCRIPTS / "check_resume_fit.py"
 ASSEMBLER = SCRIPTS / "assemble_resume.py"
 LINTER = SCRIPTS / "lint_honesty.py"
@@ -100,7 +98,7 @@ def main() -> int:
         # the slot file, so the assembler won't otherwise clobber human edits.
         try:
             slots = json.loads((OUTPUT / company / "resume.slots.json").read_text(encoding="utf-8"))
-            if isinstance(slots, dict) and slots.get("force"):
+            if isinstance(slots, dict) and cast("dict[str, Any]", slots).get("force"):
                 cmd.append("--force")
         except (OSError, ValueError):
             pass
