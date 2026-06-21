@@ -31,9 +31,8 @@ anti_signals:  [things the JD warns away from, if any]
 
 ## Step 2 — Select projects (project-granular)
 
-- Run `python3 scripts/score_projects.py <company>` for a deterministic ranked JD-keyword-overlap
-  table (it reads each project's bullets + `% Default/Other defensible stack` comments by `@key`).
-  It's advisory — sanity-check your read of the JD against it; the final pick is yours.
+- Judge each pool project against the JD's ranked keywords (compare its bullets + stack against
+  `top_keywords`/`must_haves` from Step 1). The pick is yours.
 - Keep the **top few that fill the page — usually 3**. The fit checker (Step 6) decides how many
   actually fit; start with your best 3 and let the loop add/drop.
 - **Tiebreak:** prefer the project with the stronger numbers (installs, latency, users, accuracy).

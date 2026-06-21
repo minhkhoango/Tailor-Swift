@@ -45,7 +45,6 @@ pyrightconfig.json               Pyright strict mode for the .py scripts
   references/                    tailoring-guide, honesty-rules, keywords, cover-letter
   scripts/tex_util.py            shared LaTeX parsing (brace matcher, master parser)
   scripts/assemble_resume.py     slot file -> resume.tex (verbatim-by-id bullets)
-  scripts/score_projects.py      rank master projects against a JD
   scripts/check_resume_fit.py    deterministic page-fullness + orphan-line checker
   scripts/lint_honesty.py        deterministic honesty linter (forbidden tech, number trace)
   scripts/capture_baseline.py    snapshot AI output into dataset/ before human edits

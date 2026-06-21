@@ -40,7 +40,6 @@ dataset/<company>/                     git-tracked training pairs (resume.ai.tex
   scripts/assemble_resume.py           slots + master -> resume.tex (fires automatically on save)
   scripts/check_resume_fit.py          deterministic fit + skill-row-wrap checker (auto on save)
   scripts/lint_honesty.py              deterministic FORBIDDEN/number/either-or linter (auto on save)
-  scripts/score_projects.py            advisory JD-keyword overlap ranker (run at selection time)
 watch.py                               run once: live PDF rebuild + dataset/*.final.tex on save
 ```
 
@@ -58,8 +57,8 @@ watch.py                               run once: live PDF rebuild + dataset/*.fi
 Full detail in `references/tailoring-guide.md`. In short:
 
 1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
-2. **Select projects** — run `scripts/score_projects.py <company>` for an advisory ranked overlap
-   table; keep the top few (usually 3) that fill the page, **chronological, most recent first**.
+2. **Select projects** — judge each pool project against the JD's ranked keywords; keep the top
+   few (usually 3) that fill the page, **chronological, most recent first**.
    Both experiences always kept, IOE above FPT. Selection is project-granular.
 3. **Write `output/<company>/resume.slots.json`** — the slot file: which experiences/projects by
    `@key`, which bullets by `id` (verbatim) or `text` (light reword — never >4 words longer than
