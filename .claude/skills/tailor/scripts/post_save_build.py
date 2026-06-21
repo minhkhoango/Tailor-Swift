@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from paths import OUTPUT, REPO_ROOT, SCRIPTS, VENV_PY
+from paths import OUTPUT, REPO_ROOT, SCRIPTS, SRC, VENV_PY
 
 CHECKER = SCRIPTS / "check_resume_fit.py"
 ASSEMBLER = SCRIPTS / "assemble_resume.py"
@@ -69,7 +69,7 @@ def venv_py() -> str:
 
 def build_and_check(company: str) -> str:
     """Compile resume.tex, run the fit checker + honesty linter, return a report."""
-    code, out = run(["python3", "build_resume.py", company])
+    code, out = run(["python3", str(SRC / "build_resume.py"), company])
     if code != 0:
         return f"resume.tex for {company} FAILED to compile:\n{out[-800:]}"
     _, fit = run([venv_py(), str(CHECKER), company])
@@ -115,7 +115,7 @@ def main() -> int:
         return 0
 
     # kind == "cover"
-    code, out = run(["python3", "build_cover_letter.py", company])
+    code, out = run(["python3", str(SRC / "build_cover_letter.py"), company])
     if code != 0:
         emit(f"[tailor hook] cover_letter.tex for {company} FAILED to compile:\n{out[-600:]}")
         return 0

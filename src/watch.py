@@ -26,7 +26,8 @@ import threading
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+SRC = Path(__file__).resolve().parent          # src/ — holds the build scripts
+ROOT = SRC.parent                              # repo root — holds output/ + dataset/
 OUTPUT = ROOT / "output"
 DATASET = ROOT / "dataset"
 STALE_SECONDS = 10 * 60
@@ -63,7 +64,7 @@ def _rebuild(company: str, filename: str) -> None:
         lock = _build_locks.setdefault(company, threading.Lock())
     with lock:
         print(f"[watch] {company}/{filename}: rebuilding PDF...", flush=True)
-        subprocess.run([sys.executable, build_script, company], cwd=str(ROOT))
+        subprocess.run([sys.executable, str(SRC / build_script), company], cwd=str(ROOT))
         co_dir = DATASET / company
         co_dir.mkdir(parents=True, exist_ok=True)
         src = out_dir / filename
