@@ -1,35 +1,3 @@
-%==============================================================================
-% master_resume.tex  --  INTERNAL SINGLE SOURCE OF TRUTH for the /tailor skill
-%
-% This is NOT a resume you hand out. It is the full pool: every project and
-% every experience with ALL of their bullets, plus per-project context kept as
-% comments. It compiles (so you can eyeball it; ~2 pages) but is intentionally
-% too long for one page and is tag/comment-laden.
-%
-% /tailor reads this file, SELECTS a subset (whole projects, not cherry-picked
-% bullets), LIGHTLY rewords for JD keywords, and writes a packed 1-page
-% output/<company>/resume.tex.  It does NOT heavy-rewrite or shorten bullets.
-%
-% LEAD BULLET rule: the FIRST \resumeItem in each project / experience block is
-% the "what this is" bullet -- it always leads and is always kept (a light
-% JD-vocabulary reword is fine). Remaining bullets are ordered relevance-first.
-%
-%   Keyword palette (ALLOWED / FORBIDDEN, by category):
-%     .claude/skills/tailor/references/keywords.md
-%   Honesty rules:
-%     .claude/skills/tailor/references/honesty-rules.md
-%
-% Every number / date / tech name below traces to the project's repo or to
-% Khoa's confirmed interview. Keep it that way.
-%==============================================================================
-
-%-------------------------
-% Resume in Latex
-% Author : Jake Gutierrez
-% Based off of: https://github.com/sb2nov/resume
-% License : MIT
-%------------------------
-
 \documentclass[letterpaper,11pt]{article}
 
 \usepackage{latexsym}
@@ -140,19 +108,9 @@
   \resumeSubHeadingListEnd
 
 %-----------EXPERIENCE-----------
-% Both entries are ALWAYS kept (never drop either). Heavy rewrite is banned --
-% light keyword reword only.
 \section{Experience}
   \resumeSubHeadingListStart
 
-    %=== INTERESTED OPPORTUNITY ENGINE (IOE) -- Nov 2025 ===
-    % @key: ioe
-    % Repo: github.com/minhkhoango/Mastra-Voice-Gateway (PoC) | AI helper: GitHub Copilot
-    % Default \emph{} stack: Python, Vocode, FastAPI
-    % HONESTY: the Mastra agent + SQL + business logic pre-existed Khoa -- do NOT
-    %   claim the agent. Khoa owned the GATEWAY. Vocode + Twilio were the team's
-    %   choice; Deepgram + OpenAI were Vocode-documented integrations Khoa followed;
-    %   GPT-4o-mini was Khoa's own pick for cheapest/fastest testing (< $5).
     \resumeSubheading
       {Software Engineer Intern \textnormal{$|$ \emph{Python, Vocode, FastAPI}}}{Nov 2025 -- Nov 2025}
       {Interested Opportunity Engine}{Tallahassee, FL (Remote)}
@@ -162,12 +120,6 @@
         \resumeItem{Delivered a working voice-gateway prototype that enabled the team to integrate their own Mastra agent; the company raised seed funding the following month}
       \resumeItemListEnd
 
-    %=== FPT TELECOM -- May 2025 -- Jul 2025 ===
-    % @key: fpt
-    % AI helper: ChatGPT web UI
-    % HONESTY: Khoa built the 86% Random Forest. The 86->93% XGBoost was a
-    %   TEAMMATE's work -- NEVER claim it. No SQL at FPT (CSV-based), no DB,
-    %   no Airflow/cron.
     \resumeSubheading
       {Data Scientist Intern \textnormal{$|$ \emph{Python, scikit-learn, vnstock}}}{May 2025 -- Jul 2025}
       {FPT Telecom}{Hanoi, Vietnam}
@@ -181,62 +133,23 @@
   \resumeSubHeadingListEnd
 
 %-----------PROJECTS-----------
-% Select WHOLE projects (keep a chosen project's bullets together; don't
-% cherry-pick bullets apart). Chronological, most recent first. Local Lens and
-% LinkedIn Outreach are both "Present" -- tiebreak by JD relevance.
 \section{Projects}
   \resumeSubHeadingListStart
-    %=== TAILOR SWIFT -- May 2026 -- Present ===
-    % @key: tailor_swift
-    % Repo: github.com/minhkhoango/Tailor-Swift | AI helper: Claude Code
-    % Default \emph{} stack: Python, Claude Code, LaTeX
-    % Other defensible stack: pdfplumber, pytest, pdflatex, PostToolUse hook, JSON
-    % Real number: Opus 4.8: 10,000 tokens, 20s, 30% accuracy per check. Python: 564 tokens (report), 0.26s, 100% accuracy
+
     \resumeProjectHeading
-      {\textbf{Tailor Swift} \href{https://github.com/minhkhoango/Tailor-Swift}{\underline{(Github)}} $|$ \emph{Python, Claude Code, LaTeX}}{May 2026 -- Present}
-      \resumeItemListStart
-        \resumeItem{Designed an agent skill that reduces resume tailoring time by 67\% (15 to 5 minutes); Used on 45 applications}
-        \resumeItem{Streamlined fit and honesty checks with Python -- 18$\times$ fewer tokens, 77$\times$ faster than Opus 4.8 eyeballing}
-        \resumeItem{Backed by a 98-test pytest suite over assembly, fit-check, honesty and .tex parsing}
-      \resumeItemListEnd
-    
-    %=== LOCAL LENS -- Dec 2025 -- Present ===
-    % @key: local_lens
-    % Repo: github.com/minhkhoango/local-lens | AI helper: Claude Code
-    % Default \emph{} stack: TypeScript, PaddleOCR, React
-    % Other defensible stack: ONNX Runtime Web, Vite, Vitest, Playwright, WebGPU,
-    %   AWS, JavaScript, HTML/CSS
-    \resumeProjectHeading
-      {\textbf{Local Lens} \href{https://github.com/minhkhoango/local-lens}{\underline{(Github)}} $|$ \emph{TypeScript, PaddleOCR, React}}{Dec 2025 -- May 2026}
+      {\textbf{Local Lens} \href{https://github.com/minhkhoango/local-lens}{\underline{(Github)}} $|$ \emph{TypeScript, PaddleOCR, React}}{Dec 2025 -- Present}
       \resumeItemListStart
         \resumeItem{Shipped a Chrome extension with 290+ installs, 60 weekly active users, and a 5-star average rating that performs 100\% client-side OCR from bundled models}
         \resumeItem{Implemented a dual-engine OCR pipeline using a 20 MB model for plain-text extraction (3--10 seconds) and a 146 MB model for tables and bold text extraction (18--47 seconds)}
         \resumeItem{Built a Vitest + Playwright headless Chromium test suite checking expected UI visuals and quantization parity, validating 830 KB of bundle savings at zero quality loss}
-        \resumeItem{Maintained an AWS S3 + CloudFront onboarding and feedback site with 99.9\% uptime}
-        \resumeItem{Built the extension UI in React 19 and TypeScript 5.9 (taking 90\% of codebase)}
       \resumeItemListEnd
 
-    %=== LINKEDIN OUTREACH -- May 2026 -- May 2026 ===
-    % @key: linkedin_outreach
-    % Repo: github.com/minhkhoango/linkedin-outreach | AI helper: Claude Code
-    % Default \emph{} stack: Python, Claude API, Information Retrieval
-    % Other defensible stack: PaddleOCR, pytest, JSON-RPC over stdin/stdout
-    % HARD CONSTRAINT: never the word "RAG" -- retrieval is rank/tier-based, not
-    %   embedding-based. Use "ranked retrieval" / "tier-based retrieval" /
-    %   "few-shot example retrieval" / "information retrieval".
     \resumeProjectHeading
-      {\textbf{LinkedIn Outreach} \href{https://github.com/minhkhoango/linkedin-outreach}{\underline{(Github)}} $|$ \emph{Python, Claude Code, Information Retrieval}}{May 2026 -- May 2026}
+      {\textbf{LinkedIn Outreach} \href{https://github.com/minhkhoango/linkedin-outreach}{\underline{(Github)}} $|$ \emph{Python, Claude API, Information Retrieval}}{May 2026 -- Present}
       \resumeItemListStart
-        \resumeItem{Developed an agent skill that reduces outreach drafting time by 60\% (25 to 10 minutes)}
-        \resumeItem{Architected a tier-based few-shot retrieval system, giving each draft 10 same-tier examples and persistent memory}
-        \resumeItem{Engineered a human-in-the-loop system that diffs drafts against hand-edited versions, distilling voice into voice.md}
-        \resumeItem{Maintained an 11-minute test suite and a QA script that flags 300-character length violations and cringe patterns}
+        \resumeItem{Developed a Claude Code skill that reduces outreach drafting time by 60\% (25 to 10 minutes)}
       \resumeItemListEnd
 
-    %=== P4-STACK -- Oct 2025 -- Dec 2025 ===
-    % @key: p4_stack
-    % Repo: github.com/minhkhoango/p4-stack | AI helper: Cursor
-    % Default \emph{} stack: Python, Typer, Perforce
     \resumeProjectHeading
       {\textbf{P4-stack} \href{https://github.com/minhkhoango/p4-stack}{\underline{(Github)}} $|$ \emph{Python, Typer, Perforce}}{Oct 2025 -- Dec 2025}
       \resumeItemListStart
@@ -244,11 +157,6 @@
         \resumeItem{Enabled engineers to split 1000+ line code changelists into reviewable diffs with automated dependency tracking}
       \resumeItemListEnd
 
-    %=== PR PILOT -- Sep 2025 -- Oct 2025 ===
-    % @key: pr_pilot
-    % Repo: github.com/minhkhoango/pr-pilot | AI helper: GitHub Copilot
-    % Default \emph{} stack: Python, GitHub Actions, Google Gemini API
-    % Other defensible stack: Docker, Pydantic, TypedDict, REST API, YAML, Poetry, Bash
     \resumeProjectHeading
       {\textbf{PR Pilot} \href{https://github.com/minhkhoango/pr-pilot}{\underline{(Github)}} $|$ \emph{Python, GitHub Actions, Google Gemini API}}{Sep 2025 -- Oct 2025}
       \resumeItemListStart
@@ -256,26 +164,9 @@
         \resumeItem{Validated by cold-emailing 100 engineers traced from a 257-point Hacker News thread, surfacing feedback that commits should stay human-authored}
       \resumeItemListEnd
 
-    %=== AUTOLY -- May 2025 -- Jul 2025 ===
-    % @key: autoly
-    % Repo: github.com/minhkhoango/AutoLy | AI helper: Cursor
-    % Default \emph{} stack: Python, NiceGUI, SQLite
-    \resumeProjectHeading
-      {\textbf{Autoly} \href{https://github.com/minhkhoango/AutoLy}{\underline{(Github)}} $|$ \emph{Python, NiceGUI, SQLite}}{May 2025 -- Jul 2025}
-      \resumeItemListStart
-        \resumeItem{Built an 8-step guided web application that digitizes Vietnam's official personal background form, replacing 2 to 3 hours of editing fragile Word-based templates with 20 minutes of structured, validation-driven workflow}
-        \resumeItem{Stored user progress and information in SQLite via Python's sqlite3, with lightweight authentication}
-        \resumeItem{Deployed on Render with zero-downtime updates and tested by 50 users}
-      \resumeItemListEnd
-
   \resumeSubHeadingListEnd
 
 %-----------TECHNICAL SKILLS-----------
-% Rebuild per-JD from references/keywords.md: drop irrelevant skills, reorder
-% JD-relevant first, rename/add categories (e.g. "Hardware", "Backend", "Data",
-% "Frontend & Browser"), insert EXACT JD keyword matches.
-% Output may use UP TO 5 category rows (not limited to these 4).
-% Hard limit: each row must fit on ONE rendered line.
 \section{Technical Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{

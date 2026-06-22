@@ -63,17 +63,17 @@ class SkillRows(unittest.TestCase):
 
 
 class ParseMaster(unittest.TestCase):
-    def test_all_seven_keys(self) -> None:
+    def test_all_keys(self) -> None:
         self.assertEqual(
             sorted(BLOCKS),
             ["autoly", "fpt", "ioe", "linkedin_outreach", "local_lens",
-             "p4_stack", "pr_pilot"])
+             "p4_stack", "pr_pilot", "tailor_swift"])
 
     def test_kinds_and_bullet_counts(self) -> None:
         self.assertEqual(BLOCKS["ioe"].kind, "experience")
         self.assertEqual(BLOCKS["local_lens"].kind, "project")
         self.assertEqual(len(BLOCKS["local_lens"].bullets), 5)
-        self.assertEqual(len(BLOCKS["pr_pilot"].bullets), 3)
+        self.assertEqual(len(BLOCKS["pr_pilot"].bullets), 2)
 
     def test_project_heading_has_emph(self) -> None:
         self.assertIn("\\emph", BLOCKS["local_lens"].heading_args[0])

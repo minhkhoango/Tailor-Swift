@@ -1,0 +1,20 @@
+{
+  "_comment": "Committed fixture so bench/det_vs_llm.py can BOOTSTRAP its own sample (the real output/ dir is gitignored + transient). Reconstructs a representative ~1-page Nuro_SWE selection: both experiences (all bullets, master order) + four projects, bullets verbatim by id. The headline token numbers are robust to the exact selection.",
+  "force": true,
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}
+  ],
+  "projects": [
+    {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]},
+    {"key": "linkedin_outreach", "bullets": [{"id": 1}]},
+    {"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "pr_pilot", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "skills": [
+    ["Languages", "Python, JavaScript, TypeScript, C++, SQL, HTML/CSS"],
+    ["AI/ML", "PyTorch, Scikit-learn, Claude API, PaddleOCR"],
+    ["Frameworks \\& Libraries", "FastAPI, React, Svelte, Node.js, Pandas"],
+    ["Developer Tools", "Git, Linux, Docker, AWS, Azure, Google Colab"]
+  ]
+}
