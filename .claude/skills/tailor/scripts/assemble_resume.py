@@ -21,16 +21,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
-import time
 from pathlib import Path
-from typing import Any
 
+import ai_phase
 import tex_util
 from tex_util import Block, match_braces
 from paths import DATASET, MASTER, OUTPUT, REPO_ROOT
+from slots import BulletSpec, EntrySpec, SlotsError, load_slots
 
 MAX_SKILL_ROWS = 5
 # A project's \emph{} tech-stack line carries at most this many comma-separated
@@ -80,16 +79,21 @@ def _closest_master_bullet(text_tokens: list[str], block: Block) -> tuple[float,
     return best_ratio, best_len
 
 
-def _bullet_tex(spec: dict[str, Any], block: Block) -> str:
-    """Render one bullet spec to a `\\resumeItem{...}` line body."""
-    if "id" in spec:
-        i = int(spec["id"])
+def _bullet_tex(spec: BulletSpec, block: Block) -> str:
+    """Render one bullet spec to a `\\resumeItem{...}` line body.
+
+    ``spec`` carries exactly one of ``id`` / ``text`` (enforced by the slots
+    loader). A verbatim ``id`` is pulled byte-identical; a ``text`` reword is
+    rejected if it pads its closest master bullet beyond MAX_REWORD_EXTRA_WORDS.
+    """
+    if spec.id is not None:
+        i = spec.id
         if not (1 <= i <= len(block.bullets)):
             raise AssembleError(
                 f"{block.key}: bullet id {i} out of range (1..{len(block.bullets)})")
         body = block.bullets[i - 1].strip()
-    elif "text" in spec:
-        body = str(spec["text"]).strip()
+    else:
+        body = (spec.text or "").strip()
         toks = _reword_tokens(body)
         ratio, master_len = _closest_master_bullet(toks, block)
         if ratio >= REWORD_MATCH_MIN and len(toks) - master_len > MAX_REWORD_EXTRA_WORDS:
@@ -99,12 +103,10 @@ def _bullet_tex(spec: dict[str, Any], block: Block) -> str:
                 f"a reword may add at most {MAX_REWORD_EXTRA_WORDS}. Don't lengthen a "
                 f"bullet to fill the page -- use the verbatim id, trim the reword, or "
                 f"add a whole pool bullet/project instead.")
-    else:
-        raise AssembleError(f"{block.key}: each bullet needs an 'id' or 'text' key")
     return f"        \\resumeItem{{{body}}}"
 
 
-def _bullets_block(specs: list[dict[str, Any]], block: Block) -> str:
+def _bullets_block(specs: list[BulletSpec], block: Block) -> str:
     lines = ["      \\resumeItemListStart"]
     for spec in specs:
         lines.append(_bullet_tex(spec, block))
@@ -143,7 +145,7 @@ def _validate_stack(key: str, heading: str) -> None:
             f"and set 'emph' in the slot accordingly.")
 
 
-def _validate_experiences(exp_specs: list[dict[str, Any]], blocks: dict[str, Block]) -> None:
+def _validate_experiences(exp_specs: list[EntrySpec], blocks: dict[str, Block]) -> None:
     """Enforce the hard invariant: every master experience is kept, in master order.
 
     ``blocks`` preserves master order, so the experience keys read out of it give
@@ -151,7 +153,7 @@ def _validate_experiences(exp_specs: list[dict[str, Any]], blocks: dict[str, Blo
     order would otherwise assemble a silently-wrong resume with no flag.
     """
     required = [k for k, blk in blocks.items() if blk.kind == "experience"]
-    keys = [s.get("key") for s in exp_specs]
+    keys = [s.key for s in exp_specs]
     missing = [k for k in required if k not in keys]
     if missing:
         raise AssembleError(
@@ -163,8 +165,8 @@ def _validate_experiences(exp_specs: list[dict[str, Any]], blocks: dict[str, Blo
             f"experiences must be in master order {required}, got {ordered}")
 
 
-def _entry(spec: dict[str, Any], blocks: dict[str, Block], want_kind: str) -> str:
-    key = spec.get("key")
+def _entry(spec: EntrySpec, blocks: dict[str, Block], want_kind: str) -> str:
+    key = spec.key
     if key not in blocks:
         raise AssembleError(f"unknown {want_kind} key: {key!r}")
     block = blocks[key]
@@ -172,23 +174,20 @@ def _entry(spec: dict[str, Any], blocks: dict[str, Block], want_kind: str) -> st
         raise AssembleError(f"{key!r} is a {block.kind}, not a {want_kind}")
     heading = block.heading
     if want_kind == "project":
-        if spec.get("emph"):
-            heading = _splice_emph(heading, str(spec["emph"]))
+        if spec.emph:
+            heading = _splice_emph(heading, spec.emph)
         _validate_stack(key, heading)
-    bullets = _bullets_block(list(spec.get("bullets", [])), block)
+    bullets = _bullets_block(spec.bullets, block)
     return f"    {heading}\n{bullets}"
 
 
-def _skills_section(rows: list[list[str]]) -> str:
+def _skills_section(rows: list[tuple[str, str]]) -> str:
     if len(rows) > MAX_SKILL_ROWS:
         raise AssembleError(f"{len(rows)} skill rows > max {MAX_SKILL_ROWS}")
     body = ["\\section{Technical Skills}",
             " \\begin{itemize}[leftmargin=0.15in, label={}]",
             "    \\small{\\item{"]
-    for row in rows:
-        if len(row) != 2:
-            raise AssembleError(f"skill row must be [category, content]: {row!r}")
-        cat, content = row
+    for cat, content in rows:
         body.append(f"     \\textbf{{{cat}}}{{: {content}}} \\\\")
     body += ["    }}", " \\end{itemize}"]
     return "\n".join(body)
@@ -196,9 +195,8 @@ def _skills_section(rows: list[list[str]]) -> str:
 
 def assemble(company: str, force: bool = False) -> Path:
     out_dir = OUTPUT / company
-    slots_path = out_dir / "resume.slots.json"
-    if not slots_path.exists():
-        raise AssembleError(f"missing slot file: {slots_path}")
+
+    slots = load_slots(company)  # raises SlotsError if missing / structurally wrong
 
     baseline = DATASET / company / "resume.ai.tex"
     if baseline.exists() and not force:
@@ -206,7 +204,6 @@ def assemble(company: str, force: bool = False) -> Path:
             f"AI baseline already exists ({baseline.relative_to(REPO_ROOT)}); "
             f"refusing to clobber human edits. Re-run with --force to regenerate.")
 
-    slots: dict[str, Any] = json.loads(slots_path.read_text(encoding="utf-8"))
     master = MASTER.read_text(encoding="utf-8")
     blocks = tex_util.parse_master(master)
 
@@ -214,12 +211,10 @@ def assemble(company: str, force: bool = False) -> Path:
     exp_marker = master.index("%-----------EXPERIENCE-----------")
     preamble = master[doc_start:exp_marker].rstrip() + "\n"
 
-    exp_specs = list(slots.get("experiences", []))
-    _validate_experiences(exp_specs, blocks)
-    experiences = "\n\n".join(_entry(e, blocks, "experience") for e in exp_specs)
-    projects = "\n\n".join(_entry(p, blocks, "project")
-                           for p in slots.get("projects", []))
-    skills = _skills_section([list(r) for r in slots.get("skills", [])])
+    _validate_experiences(slots.experiences, blocks)
+    experiences = "\n\n".join(_entry(e, blocks, "experience") for e in slots.experiences)
+    projects = "\n\n".join(_entry(p, blocks, "project") for p in slots.projects)
+    skills = _skills_section(slots.skills)
 
     parts = [
         preamble,
@@ -251,11 +246,8 @@ def assemble(company: str, force: bool = False) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "resume.tex").write_text(resume_tex, encoding="utf-8")
 
-    # Phase signal for Feature 1 (Stop-hook baseline) + watch.py.
-    lock = out_dir / ".ai_phase.lock"
-    if not lock.exists():
-        lock.write_text(json.dumps({"company": company, "ts": time.time(),
-                                    "force": force}), encoding="utf-8")
+    # AI-phase signal for the Stop-hook baseline capture + watch.py (see ai_phase).
+    ai_phase.mark(out_dir, company, force)
     return out_dir / "resume.tex"
 
 
@@ -267,7 +259,7 @@ def main() -> int:
     args = ap.parse_args()
     try:
         path = assemble(args.company, args.force)
-    except (AssembleError, json.JSONDecodeError) as e:
+    except (AssembleError, SlotsError) as e:
         print(f"assemble_resume: {e}", file=sys.stderr)
         return 1
     print(f"assembled {path.relative_to(REPO_ROOT)}")

@@ -1,4 +1,4 @@
-# Tailor
+# Tailor Swift
 
 Turn a job description into a **packed, one-page, ATS-friendly resume** — tailored to the
 role but with **every fact locked to source**. Optionally writes a matching cover letter too.

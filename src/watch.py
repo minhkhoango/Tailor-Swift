@@ -26,11 +26,16 @@ import threading
 import time
 from pathlib import Path
 
+# Repo layout, the AI-phase lock protocol, and the output-file classifier are all
+# owned by the tailor layer; import them so the watcher and the hook agree byte for
+# byte. The skill scripts dir is added to the path for a bare ``python3 watch.py``.
 SRC = Path(__file__).resolve().parent          # src/ — holds the build scripts
-ROOT = SRC.parent                              # repo root — holds output/ + dataset/
-OUTPUT = ROOT / "output"
-DATASET = ROOT / "dataset"
-STALE_SECONDS = 10 * 60
+_SCRIPTS = SRC.parent / ".claude" / "skills" / "tailor" / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import ai_phase  # noqa: E402
+from paths import DATASET, OUTPUT, REPO_ROOT, classify_output  # noqa: E402
+
 DEBOUNCE_SECONDS = 0.75
 
 # filename -> (build script, dataset snapshot name)
@@ -44,19 +49,9 @@ _build_locks: dict[str, threading.Lock] = {}
 _state_lock = threading.Lock()
 
 
-def _ai_phase(out_dir: Path) -> bool:
-    lock = out_dir / ".ai_phase.lock"
-    if not lock.exists():
-        return False
-    try:
-        return (time.time() - lock.stat().st_mtime) < STALE_SECONDS
-    except OSError:
-        return False
-
-
 def _rebuild(company: str, filename: str) -> None:
     out_dir = OUTPUT / company
-    if _ai_phase(out_dir):
+    if ai_phase.is_fresh(out_dir):
         print(f"[watch] {company}/{filename}: skipped: ai_phase", flush=True)
         return
     build_script, snapshot = WATCHED[filename]
@@ -64,7 +59,7 @@ def _rebuild(company: str, filename: str) -> None:
         lock = _build_locks.setdefault(company, threading.Lock())
     with lock:
         print(f"[watch] {company}/{filename}: rebuilding PDF...", flush=True)
-        subprocess.run([sys.executable, str(SRC / build_script), company], cwd=str(ROOT))
+        subprocess.run([sys.executable, str(SRC / build_script), company], cwd=str(REPO_ROOT))
         co_dir = DATASET / company
         co_dir.mkdir(parents=True, exist_ok=True)
         src = out_dir / filename
@@ -86,11 +81,15 @@ def _schedule(company: str, filename: str) -> None:
 
 
 def _classify(path: Path) -> tuple[str, str] | None:
+    """(company, filename) for a watched save under output/<company>/, else None.
+
+    Defers the output-dir membership check to the shared classifier, then keeps
+    only the two filenames the watcher rebuilds (slot files are ignored here).
+    """
     if path.name not in WATCHED:
         return None
-    if path.parent.parent != OUTPUT:
-        return None
-    return (path.parent.name, path.name)
+    target = classify_output(path)
+    return (target[0], path.name) if target is not None else None
 
 
 def main() -> int:

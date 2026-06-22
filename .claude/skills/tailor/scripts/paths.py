@@ -25,3 +25,33 @@ DATASET = REPO_ROOT / "dataset"
 JOBDESC = REPO_ROOT / "jobDescription"
 MASTER = SKILL_DIR / "assets" / "master_resume.tex"
 VENV_PY = REPO_ROOT / ".venv" / "bin" / "python"
+
+# The three tailored artifacts a save can touch, and the kind each maps to. Both
+# the PostToolUse hook and the watcher used to re-derive this same parse; it now
+# lives here once, beside the layout it depends on.
+_OUTPUT_FILE_KINDS = {
+    "resume.slots.json": "slots",
+    "resume.tex": "resume",
+    "cover_letter.tex": "cover",
+}
+
+
+def classify_output(file_path: str | Path) -> tuple[str, str] | None:
+    """Classify a saved file as a tailored artifact under ``output/<company>/``.
+
+    Returns ``(company, kind)`` when ``file_path`` is one of the watched names
+    sitting directly in an ``output/<company>/`` directory, else ``None``. ``kind``
+    is one of ``"slots" | "resume" | "cover"``. The parent-of-parent must be the
+    real OUTPUT dir (resolved), so a same-named file elsewhere is ignored.
+    """
+    p = Path(file_path)
+    kind = _OUTPUT_FILE_KINDS.get(p.name)
+    if kind is None:
+        return None
+    parent = p.parent
+    try:
+        if parent.parent.resolve() != OUTPUT.resolve():
+            return None
+    except OSError:
+        return None
+    return (parent.name, kind)

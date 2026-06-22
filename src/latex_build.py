@@ -19,8 +19,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent  # src/ -> repo root
-OUTPUT = ROOT / "output"
+# The repo layout is owned once by the tailor layer's paths.py; import it rather
+# than re-deriving OUTPUT here. The skill scripts dir is added to the path so a
+# bare ``python3 src/build_resume.py`` (sys.path[0] == src/) can still find it.
+_SCRIPTS = Path(__file__).resolve().parents[1] / ".claude" / "skills" / "tailor" / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from paths import OUTPUT, REPO_ROOT as ROOT  # noqa: E402
+
 AUX_EXTS = (".aux", ".log", ".out", ".synctex.gz", ".fls", ".fdb_latexmk", ".toc", ".bbl", ".blg")
 
 

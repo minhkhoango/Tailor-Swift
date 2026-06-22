@@ -29,11 +29,12 @@ Exit codes (mirrors build_resume.py):
 
 import argparse
 import importlib.util
+import json
 import re
 import string
 import sys
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -450,6 +451,26 @@ def format_report(r: FitReport) -> str:
     return "\n".join(lines)
 
 
+def report_to_dict(r: FitReport) -> dict[str, Any]:
+    """Serialize a FitReport for machine consumers (the /tailor pipeline).
+
+    Carries the full structured report (``asdict``), the verdict, the headline
+    numbers the pipeline branches on, and the same human ``text`` the CLI prints
+    -- so the caller never re-parses formatted stdout.
+    """
+    return {
+        "company": r.company,
+        "verdict": r.verdict,
+        "ok": r.verdict == "OK",
+        "page_count": r.page_count,
+        "fullness": r.fullness,
+        "spillover_flags": sum(1 for b in r.bullets if b.flagged),
+        "notes": list(r.notes),
+        "report": asdict(r),
+        "text": format_report(r),
+    }
+
+
 def calibrate(company: str) -> int:
     pages = extract_pages((OUTPUT / company) / f"{JOBNAME}.pdf")
     if not pages:
@@ -477,12 +498,23 @@ def main() -> int:
                     help="print suggested PRINTABLE_* constants from a known-good resume")
     ap.add_argument("--pages", metavar="PDF",
                     help="print the page count of a PDF and exit (used by the cover-letter hook)")
+    ap.add_argument("--json", metavar="COMPANY", dest="json_company",
+                    help="emit one company's FitReport as JSON (used by the /tailor pipeline)")
     args = ap.parse_args()
 
     hint = check_deps()
     if hint:
         print(hint, file=sys.stderr)
         return 2
+
+    if args.json_company:
+        try:
+            r = analyze_company(args.json_company)
+        except FileNotFoundError as e:
+            print(json.dumps({"company": args.json_company, "error": str(e)}))
+            return 2
+        print(json.dumps(report_to_dict(r)))
+        return 0 if r.verdict == "OK" else 1
 
     if args.pages:
         try:

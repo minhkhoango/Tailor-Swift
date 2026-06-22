@@ -27,10 +27,10 @@ import sys
 import time
 from pathlib import Path
 
+import ai_phase
 from paths import DATASET, JOBDESC, OUTPUT
 
 RESUME_JOBNAME = "Khoa_Ngo_resume"
-STALE_SECONDS = 10 * 60
 
 
 def _complete(out_dir: Path) -> bool:
@@ -79,25 +79,16 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         pass
 
-    if not OUTPUT.is_dir():
-        return 0
-
-    for lock in OUTPUT.glob("*/.ai_phase.lock"):
-        out_dir = lock.parent
+    for out_dir in ai_phase.find_locked(OUTPUT):
         company = out_dir.name
         if _complete(out_dir):
             try:
                 _capture(company)
-                lock.unlink(missing_ok=True)
+                ai_phase.clear(out_dir)
             except OSError:
                 pass  # leave the lock; try again next turn
-        else:
-            try:
-                age = time.time() - lock.stat().st_mtime
-            except OSError:
-                age = 0.0
-            if age > STALE_SECONDS:
-                lock.unlink(missing_ok=True)  # abandoned run
+        elif ai_phase.is_stale(out_dir):
+            ai_phase.clear(out_dir)  # abandoned run
     return 0
 
 

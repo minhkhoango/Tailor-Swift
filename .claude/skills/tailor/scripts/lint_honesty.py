@@ -20,12 +20,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 
 import tex_util
 from paths import JOBDESC, MASTER, OUTPUT, REPO_ROOT
+from slots import SlotsError, load_slots
 
 # --- FORBIDDEN list (the one source of truth) ------------------------------- #
 # Case-sensitive, word-boundary tech names with no defensible source.
@@ -57,15 +57,10 @@ def traceable_numbers(company: str, blocks: dict[str, tex_util.Block]) -> set[st
     to an unshipped project is flagged rather than waved through.
     """
     keys: list[str] | None = None
-    slots_path = OUTPUT / company / "resume.slots.json"
-    if slots_path.exists():
-        try:
-            slots = json.loads(slots_path.read_text(encoding="utf-8"))
-            picked = [e.get("key") for e in slots.get("experiences", [])]
-            picked += [p.get("key") for p in slots.get("projects", [])]
-            keys = [k for k in picked if k in blocks]
-        except (json.JSONDecodeError, OSError):
-            keys = None
+    try:
+        keys = [k for k in load_slots(company).selected_keys if k in blocks]
+    except SlotsError:
+        keys = None  # no/invalid slot file -> fall back to every master block
     chosen = [blocks[k] for k in keys] if keys else list(blocks.values())
     nums: set[str] = set()
     for blk in chosen:
@@ -140,6 +135,13 @@ def lint_cover(company: str) -> list[str]:
     return forbidden_hits(why)
 
 
+def report_line(flags: list[str], label: str) -> str:
+    """One-line honesty verdict, shared by this CLI and the /tailor pipeline."""
+    if flags:
+        return f"honesty ({label}): FLAGS: [{'; '.join(flags)}]"
+    return f"honesty ({label}): clean"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Deterministic honesty linter (advisory).")
     ap.add_argument("company", help="company stem under output/")
@@ -148,11 +150,7 @@ def main() -> int:
     args = ap.parse_args()
 
     flags = lint_cover(args.company) if args.cover else lint_resume(args.company)
-    label = "cover" if args.cover else "resume"
-    if flags:
-        print(f"honesty ({label}): FLAGS: [{'; '.join(flags)}]")
-    else:
-        print(f"honesty ({label}): clean")
+    print(report_line(flags, "cover" if args.cover else "resume"))
     return 0
 
 
