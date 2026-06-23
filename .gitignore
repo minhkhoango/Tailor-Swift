@@ -2,6 +2,7 @@
 .venv
 .vscode
 __pycache__/
+
 *.pyc
 
 # LaTeX build artifacts
@@ -18,6 +19,8 @@ missfont.log
 diff/
 jobDescription/
 output/
+output_Low/
+dataset/
 
 # Sandbox-masked home dotfiles (not part of this project)
 .bashrc
@@ -38,3 +41,4 @@ output/
 .claude/skills/scrape-jobs/.profile/
 .claude/skills/scrape-jobs/.debug/
 .claude/skills/scrape-jobs/last_run.json
+
