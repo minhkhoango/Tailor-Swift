@@ -13,9 +13,9 @@ dataset/:
     jobDescription/<co>.txt       -> dataset/<co>/job_description.txt    (if present)
 
 then deletes the lock. Incomplete + fresh -> leave the lock for next time.
-Incomplete + stale (>10 min) -> the run was abandoned; drop the lock. On a
-re-tailor (baseline already exists) the prior pair is archived to
-dataset/<co>/.prev-<ts>/ first, so a pair is never lost. Always exits 0.
+Incomplete + stale (>10 min) -> the run was abandoned; drop the lock. A company
+that already has a baseline is refused by the assembler (no redo path), so this
+only ever captures a first, fresh pair. Always exits 0.
 
 Wired in .claude/settings.local.json under hooks.Stop.
 """
@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import shutil
 import sys
-import time
 from pathlib import Path
 
 import ai_phase
@@ -44,24 +43,10 @@ def _complete(out_dir: Path) -> bool:
         return False
 
 
-def _archive_prior(co_dir: Path) -> None:
-    """Move any existing snapshot files into dataset/<co>/.prev-<ts>/."""
-    existing = [p for p in co_dir.iterdir() if not p.name.startswith(".prev-")]
-    if not existing:
-        return
-    prev = co_dir / f".prev-{int(time.time())}"
-    prev.mkdir(parents=True, exist_ok=True)
-    for p in existing:
-        shutil.move(str(p), str(prev / p.name))
-
-
 def _capture(company: str) -> None:
     out_dir = OUTPUT / company
     co_dir = DATASET / company
     co_dir.mkdir(parents=True, exist_ok=True)
-
-    if (co_dir / "resume.ai.tex").exists():
-        _archive_prior(co_dir)
 
     shutil.copy2(out_dir / "resume.tex", co_dir / "resume.ai.tex")
     cover = out_dir / "cover_letter.tex"

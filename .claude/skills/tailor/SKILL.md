@@ -19,78 +19,95 @@ locked; wording barely moves.
 
 ## Commands
 - `/tailor` — process every `jobDescription/*.txt` with no matching `output/<stem>/` yet (idempotent).
-- `/tailor <prefix> [...]` — process the named JD(s); case-insensitive prefix, overwrites existing output.
-- `/tailor --cover <prefix>` — also write a cover letter (off by default).
-- `/tailor --force` — reprocess all JDs.
+- `/tailor --cover` — same, plus a cover letter for each (off by default; see `references/cover-letter.md`).
 
-## Files
+A note left **inside** a JD `.txt` (e.g. "emphasize backend") is guidance for that job — follow it.
+To redo a company, delete its `output/<company>/` and re-run. (A company already captured to
+`dataset/<company>/` is locked: the assembler refuses to regenerate it, so its benchmark pair is safe.)
+
+## The pool (source of truth: `assets/master_resume.tex`)
+Every project and the two experiences live there as `% @key:` blocks. That file is the **only**
+source of truth for which projects exist, their bullets, and their dates — this doc never restates
+them (they drift). Read the `@key` blocks each run. Both experiences are always kept, IOE then FPT.
+
+## Pipeline (per JD)
+1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
+2. **Select projects** — judge each `@key` block against the JD's ranked keywords; keep the top
+   few (usually 3) that fill the page. Keep a project's bullets together; don't cherry-pick one down
+   to a single bullet. Both experiences always in.
+3. **Write `output/<company>/resume.slots.json`** — the slot file (schema below). You do **not**
+   hand-write the `.tex`; the assembler builds it (a direct `.tex` edit is overwritten next assemble).
+4. **Honesty audit** — apply `references/honesty-rules.md` to your draft **before** saving.
+5. **Save the slot** → a hook auto-runs the chain (assemble → build PDF → fit check → the two
+   deterministic honesty checks) and returns one combined report. **You never invoke these yourself.**
+6. **React to the report** by editing the slot and re-saving (cap ~3 passes) until it reads
+   `OK` + `honesty: clean` — see the table below.
+7. **Cover letter** — only with `--cover`. Fill `<<Company>>` + `<<WHY_COMPANY>>`; body is fixed.
+   See `references/cover-letter.md`.
+8. **Report** — print the per-JD summary block (below). No `reasoning.md` is written.
+
+## Slot schema (`output/<company>/resume.slots.json`)
+```json
+{
+  "company": "Apple",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"text": "lightly reworded bullet ..."}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "projects": [
+    {"key": "local_lens", "emph": "TypeScript, React, AWS", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "pr_pilot", "bullets": [{"id": 1}, {"id": 3}]}
+  ],
+  "skills": [["Languages", "Python, TypeScript, C++, SQL"], ["AI/ML", "PyTorch, Claude API"]]
+}
 ```
-jobDescription/<company>.txt          input JD
-output/<company>/resume.slots.json    YOU WRITE THIS — the slot file (which bullets, by id)
-output/<company>/resume.tex           assembled for you from the slots (don't hand-edit)
-output/<company>/cover_letter.tex     only with --cover (fixed body + <<WHY_COMPANY>>)
-dataset/<company>/                     git-tracked training pairs (resume.ai.tex / resume.final.tex)
-.claude/skills/tailor/
-  assets/master_resume.tex            THE source of truth — keyed (@key) blocks + every bullet
-  assets/cover_letter.tex             cover-letter template — body fixed, only <<WHY_COMPANY>> varies
-  references/tailoring-guide.md        full per-JD pipeline — READ THIS before composing
-  references/honesty-rules.md          the audit (the mechanical half runs as lint_honesty.py)
-  references/keywords.md               ALLOWED / FORBIDDEN keyword ledger (by category)
-  references/cover-letter.md           cover-letter pipeline (only for --cover)
-  scripts/assemble_resume.py           slots + master -> resume.tex (fires automatically on save)
-  scripts/check_resume_fit.py          deterministic fit + skill-row-wrap checker (auto on save)
-  scripts/lint_honesty.py              deterministic FORBIDDEN/number/either-or linter (auto on save)
-watch.py                               run once: live PDF rebuild + dataset/*.final.tex on save
-```
+- **`key`** — the `% @key:` of a block in `master_resume.tex` (`ioe`, `fpt`, project keys).
+- **`{"id": n}`** — pull `\resumeItem` **#n** of that block **verbatim** (1-based, master order).
+  Prefer ids: byte-identical bullets are honesty-safe by construction.
+- **`{"text": "..."}`** — a light reword: swap a verb / splice in an exact JD keyword, same length.
+  The assembler **rejects** a `text` that runs more than **4 words longer** than its source bullet.
+  When unsure a fact survives a reword, use the verbatim id.
+- **`emph`** (projects only) — replaces the heading's tech-stack `\emph{}` with the **3 most
+  JD-relevant** techs (hard cap 3; assembler errors on 4+). Omit to keep the master default.
+- **`skills`** — up to **5** `[category, content]` rows, rebuilt per JD from `references/keywords.md`.
+  Each row must fit one rendered line; escape `&` as `\\&`.
+
+**Ordering is automatic** — you don't sort. Experiences are forced to IOE→FPT; projects are sorted
+by their master end-date, most recent first. The only ordering you control: when two projects share
+an end-date the assembler keeps your slot order, so list the more JD-relevant first. Dates are
+**never** in the slot — always taken verbatim from the master.
+
+## React to the fit + honesty report
+The report is one line when clean; when not, it shows only the problematic bullets/rows.
+- **`UNDERFULL`** (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet.
+  **Never pad a bullet** (the assembler rejects a reword >4 words past its source). Once all bullets
+  + both experiences + 5 skill rows are in and it's still under, accept and stop.
+- **`SPILLOVER`** / a **`FLAG`** bullet — its last wrapped line is ≤4 words; lightly reword so it
+  fills. Never cut a number fact. `SKIP` = low-confidence match, not a target.
+- **`OVERFULL`** / **`MULTIPAGE`** — drop the lowest-JD-scoring project. Never drop education,
+  header, or either experience.
+- **`WRAP`** on a skill row — prune its lowest-signal entries until it's one line.
+- **`honesty: FLAGS [...]`** — fix each (a stray untraceable number, or both PR-Pilot bullets). The
+  rest of the honesty audit is yours from `honesty-rules.md` — catch it before you save.
+- **`OK`** + `honesty: clean` — done.
 
 ## One-time local setup
-- **Watcher (live PDF + human-final snapshots):** start it once and leave it running —
+- **Watcher (live PDF + human-final snapshots):** start once and leave running —
   `.venv/bin/python watch.py` (after `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`).
-- **AI-baseline capture (Stop hook):** add this to `.claude/settings.local.json` so the AI's first
-  version is snapshotted to `dataset/<co>/resume.ai.tex` when each tailor turn ends:
+- **AI-baseline capture (Stop hook):** in `.claude/settings.local.json`, so the AI's first version
+  is snapshotted to `dataset/<co>/resume.ai.tex` when each tailor turn ends:
   ```json
   { "hooks": { "Stop": [ { "hooks": [ { "type": "command",
     "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/skills/tailor/scripts/capture_baseline.py\"" } ] } ] } }
   ```
 
-## Pipeline (per JD)
-Full detail in `references/tailoring-guide.md`. In short:
-
-1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
-2. **Select projects** — judge each pool project against the JD's ranked keywords; keep the top
-   few (usually 3) that fill the page, **chronological, most recent first**.
-   Both experiences always kept, IOE above FPT. Selection is project-granular.
-3. **Write `output/<company>/resume.slots.json`** — the slot file: which experiences/projects by
-   `@key`, which bullets by `id` (verbatim) or `text` (light reword — never >4 words longer than
-   its source), `emph` for project stack lines (the **3 most JD-relevant** techs; assembler caps
-   at 3), and the `skills` rows (up to 5) rebuilt from `references/keywords.md`. You do **not**
-   hand-write the `.tex` — the assembler builds it. Schema in `references/tailoring-guide.md`.
-4. **Honesty audit** — the mechanical rules run as `lint_honesty.py` (below); you still apply the
-   judgment rules in `references/honesty-rules.md` (category relabeling, IOE/FPT attribution).
-5. **Save → auto assemble + fit + honesty.** Writing `resume.slots.json` fires a hook that runs
-   `assemble_resume.py` → `build_resume.py` → `check_resume_fit.py` → `lint_honesty.py` and returns
-   the combined report. **You never run these yourself.** (A direct `resume.tex` edit is overwritten
-   on the next assemble — edit the slot.)
-6. **React to the report by editing the slot** until it reads `OK` + `honesty: clean`:
-   - `UNDERFULL` (<0.95) — add a whole JD-relevant project, or one more faithful pool bullet id.
-     **Never pad a bullet with filler to gain height** (the assembler rejects a reword >4 words
-     past its source). Once all bullets + 5 skill rows are in and it's still under, accept and stop.
-   - `SPILLOVER` / orphan `FLAG` — replace the flagged bullet id with a lightly-reworded `text` so
-     its last line isn't ≤4 words (*must* be fixed). Never cut a number fact.
-   - `OVERFULL` / `MULTIPAGE` — drop the lowest-JD-scoring project. Never drop education, header,
-     or either experience. A skill row tagged `WRAP` — prune its lowest-signal entries.
-   - `honesty: FLAGS [...]` — fix each (forbidden token, untraceable number, both PR-Pilot bullets,
-     unsupported "agentic").
-7. **Cover letter** — only with `--cover`. Fill `<<Company>>` + the `<<WHY_COMPANY>>` slot; the
-   body is fixed. See `references/cover-letter.md`.
-8. **Report** — one ~5-line block per JD (below). No `reasoning.md` is written anymore.
-
 ## Per-JD summary (print to terminal)
 ```
 <company>:
-  projects: <P1>, <P2>, <P3>      (chronological, most recent first)
+  projects: <P1>, <P2>, <P3>      (most recent first)
   fill: 0.9x   verdict: OK | UNDERFULL(accepted) | ...
   honesty flags: <triggers caught + fixed> | none
   uncovered must-haves: <JD requirements with no honest home> | none
 ```
-The `uncovered must-haves` line is the one you must always surface — it's what changes whether Khoa hits "submit".
+The `uncovered must-haves` line is the one you must always surface — it's what changes whether Khoa
+hits "submit".

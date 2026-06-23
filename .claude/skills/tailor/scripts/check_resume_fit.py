@@ -419,33 +419,34 @@ def analyze_company(company: str) -> FitReport:
 # Reporting / CLI
 # --------------------------------------------------------------------------- #
 def format_report(r: FitReport) -> str:
-    lines = [f"{r.company}:"]
-    lines.append(f"  page_count: {r.page_count}")
-    if r.fullness is None:
-        lines.append("  fullness: n/a (not single page)")
-    else:
-        lines.append(f"  fullness: {r.fullness:.2f}   (target "
-                     f"{FULLNESS_TARGET_LOW:.2f}-{FULLNESS_TARGET_HIGH:.2f})")
-        lines.append(f"  content_band_pt: top={r.content_top:.1f} bottom={r.content_bottom:.1f}"
-                     f"  printable={PRINTABLE_TOP_PT:.0f}..{PRINTABLE_BOTTOM_PT:.0f}")
-    if r.bullets:
-        lines.append("  bullets:")
-        for b in r.bullets:
-            if not b.rendered:
-                tag = "SKIP"
-                detail = f"match_ratio={b.match_ratio:.2f} (low-confidence; not evaluated)"
-            else:
-                tag = "FLAG" if b.flagged else "OK"
-                detail = f"lines={b.n_lines} last_line_words={b.last_line_word_count}"
-            lines.append(f"    [{b.index:02d}] {tag:<4} {detail}  \"{b.preview}\"")
+    """One headline line, plus ONLY the problematic items when something's wrong.
+
+    Clean (verdict OK, no spillover FLAG, no skill-row WRAP) collapses to a single
+    line -- the headline numbers carry everything the model needs. When anything is
+    actionable, the headline is followed by the FLAG bullets / WRAP rows / notes
+    the model must target (never the OK bullets, which were the bulk of the cost).
+    """
     n_flag = sum(1 for b in r.bullets if b.flagged)
-    lines.append(f"  spillover_flags: {n_flag}   (bullets with <= {SPILLOVER_MAX_WORDS}-word last line)")
-    if r.skill_rows:
-        lines.append("  skill_rows:")
-        for s in r.skill_rows:
-            tag = "WRAP" if s.wrapped else ("OK" if s.rendered else "SKIP")
-            lines.append(f"    [{tag:<4}] lines={s.n_lines}  \"{s.category}\"")
-    lines.append(f"  verdict: {r.verdict}")
+    n_wrap = sum(1 for s in r.skill_rows if s.wrapped)
+    n_skip = sum(1 for b in r.bullets if not b.rendered)
+    full = "n/a" if r.fullness is None else f"{r.fullness:.2f}"
+    skills_tag = "skills fit" if n_wrap == 0 else f"{n_wrap} skill WRAP"
+    head = (f"{r.company}: {r.verdict}  {r.page_count}pg  fullness {full}"
+            f"  spillover {n_flag}  {skills_tag}")
+    if n_skip:
+        head += f"  ({n_skip} low-confidence)"
+
+    if r.verdict == "OK" and n_flag == 0 and n_wrap == 0:
+        return head
+
+    lines = [head]
+    for b in r.bullets:
+        if b.flagged:
+            lines.append(f"    [{b.index:02d}] FLAG lines={b.n_lines} "
+                         f"last_line_words={b.last_line_word_count}  \"{b.preview}\"")
+    for s in r.skill_rows:
+        if s.wrapped:
+            lines.append(f"    [WRAP] lines={s.n_lines}  \"{s.category}\"")
     if r.notes:
         lines.append(f"  notes: {'; '.join(r.notes)}")
     return "\n".join(lines)

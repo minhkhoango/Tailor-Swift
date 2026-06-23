@@ -3,34 +3,166 @@
 
 The LLM writes a small ``output/<company>/resume.slots.json`` (which projects /
 experiences, which bullets by id, reworded bullets, the skills rows). This
-script does the mechanical, deterministic part: it copies the preamble + heading
-+ Education verbatim from ``assets/master_resume.tex``, then emits the chosen
-experiences and projects (headings verbatim by ``@key``; bullets pulled
-byte-identical by id, or emitted from the slot's ``text``), then rebuilds the
-Technical Skills section from the slot rows.
+script owns BOTH ends of that contract:
+
+  * the slot-file SCHEMA -- the typed loader (``load_slots``) that turns the raw
+    JSON into ``Slots`` (experiences/projects/skills), enforcing structure
+    (id-XOR-text per bullet, [category, content] skill rows), and
+  * the mechanical ASSEMBLY -- copy the preamble + heading + Education verbatim
+    from ``assets/master_resume.tex``, emit the chosen experiences and projects
+    (headings verbatim by ``@key``; bullets pulled byte-identical by id, or
+    emitted from the slot's ``text``), then rebuild Technical Skills from the
+    slot rows.
+
+Ordering is deterministic and owned here, not by the model: experiences are
+validated into master order (IOE before FPT); projects are sorted by their
+master end-date, most recent first ("Present" beats any dated end). A stable
+sort keeps slot order for a same-date tie -- the model's only ordering job.
 
 Verbatim-by-id bullets are honesty-safe by construction. Errors (unknown key,
 out-of-range id, >5 skill rows, a project stack with >3 items, or a `text`
 reword padded materially longer than its source bullet) abort with a clear
-message and a nonzero exit.
+message and a nonzero exit. A company that already has a captured
+``dataset/<co>/resume.ai.tex`` baseline is refused (no redo path) -- delete that
+directory to regenerate.
 
 Usage:
-    python3 assemble_resume.py <company> [--force]
+    python3 assemble_resume.py <company>
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import ai_phase
 import tex_util
 from tex_util import Block, match_braces
 from paths import DATASET, MASTER, OUTPUT, REPO_ROOT
-from slots import BulletSpec, EntrySpec, SlotsError, load_slots
 
+
+# --------------------------------------------------------------------------- #
+# Slot-file schema (the LLM's contract with the assembler)
+# --------------------------------------------------------------------------- #
+class SlotsError(Exception):
+    """Raised when the slot file is missing, unparseable, or structurally wrong."""
+
+
+@dataclass(frozen=True)
+class BulletSpec:
+    """One chosen bullet: verbatim by ``id`` XOR a reworded ``text``."""
+    id: int | None = None
+    text: str | None = None
+
+
+@dataclass(frozen=True)
+class EntrySpec:
+    """One chosen experience or project: its master ``key`` + bullet picks.
+
+    ``emph`` is the optional project tech-stack override (ignored for experiences).
+    """
+    key: str
+    bullets: list[BulletSpec]
+    emph: str | None = None
+
+
+@dataclass(frozen=True)
+class Slots:
+    experiences: list[EntrySpec]
+    projects: list[EntrySpec]
+    skills: list[tuple[str, str]]
+
+    @property
+    def selected_keys(self) -> list[str]:
+        """Master keys actually picked, experiences first then projects."""
+        return [e.key for e in self.experiences] + [p.key for p in self.projects]
+
+
+def _slots_path(company: str) -> Path:
+    return OUTPUT / company / "resume.slots.json"
+
+
+def _bullet(raw: Any, where: str) -> BulletSpec:
+    if not isinstance(raw, dict):
+        raise SlotsError(f"{where}: each bullet must be an object, got {type(raw).__name__}")
+    d = cast("dict[str, Any]", raw)
+    has_id = "id" in d
+    has_text = "text" in d
+    if has_id == has_text:  # neither, or both
+        raise SlotsError(f"{where}: each bullet needs exactly one of 'id' or 'text'")
+    if has_id:
+        try:
+            return BulletSpec(id=int(d["id"]))
+        except (TypeError, ValueError):
+            raise SlotsError(f"{where}: bullet 'id' must be an integer, got {d['id']!r}")
+    return BulletSpec(text=str(d["text"]))
+
+
+def _entry_spec(raw: Any, kind: str, idx: int) -> EntrySpec:
+    where = f"{kind}[{idx}]"
+    if not isinstance(raw, dict):
+        raise SlotsError(f"{where}: must be an object, got {type(raw).__name__}")
+    d = cast("dict[str, Any]", raw)
+    key = d.get("key")
+    if not isinstance(key, str) or not key:
+        raise SlotsError(f"{where}: missing string 'key'")
+    bullets_raw = d.get("bullets", [])
+    if not isinstance(bullets_raw, list):
+        raise SlotsError(f"{where}: 'bullets' must be a list")
+    bullets = [_bullet(b, f"{where}.bullets[{j}]")
+               for j, b in enumerate(cast("list[Any]", bullets_raw))]
+    emph_raw = d.get("emph")
+    emph = str(emph_raw) if emph_raw is not None else None
+    return EntrySpec(key=key, bullets=bullets, emph=emph)
+
+
+def _skill_rows(raw: Any) -> list[tuple[str, str]]:
+    if not isinstance(raw, list):
+        raise SlotsError("'skills' must be a list of [category, content] rows")
+    rows: list[tuple[str, str]] = []
+    for i, row in enumerate(cast("list[Any]", raw)):
+        if not isinstance(row, (list, tuple)) or len(cast("list[Any]", row)) != 2:
+            raise SlotsError(f"skills[{i}] must be a [category, content] pair, got {row!r}")
+        cat, content = cast("list[Any]", row)
+        rows.append((str(cat), str(content)))
+    return rows
+
+
+def parse_slots(raw: Any) -> Slots:
+    """Validate a decoded slot object's STRUCTURE and return a typed ``Slots``."""
+    if not isinstance(raw, dict):
+        raise SlotsError(f"slot file must be a JSON object, got {type(raw).__name__}")
+    d = cast("dict[str, Any]", raw)
+    exp_raw = d.get("experiences", [])
+    prj_raw = d.get("projects", [])
+    if not isinstance(exp_raw, list) or not isinstance(prj_raw, list):
+        raise SlotsError("'experiences' and 'projects' must be lists")
+    experiences = [_entry_spec(e, "experiences", i) for i, e in enumerate(cast("list[Any]", exp_raw))]
+    projects = [_entry_spec(p, "projects", i) for i, p in enumerate(cast("list[Any]", prj_raw))]
+    skills = _skill_rows(d.get("skills", []))
+    return Slots(experiences, projects, skills)
+
+
+def load_slots(company: str) -> Slots:
+    """Load + structurally validate ``output/<company>/resume.slots.json``."""
+    path = _slots_path(company)
+    if not path.exists():
+        raise SlotsError(f"missing slot file: {path}")
+    try:
+        data: Any = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise SlotsError(f"slot file is not valid JSON: {e}")
+    return parse_slots(data)
+
+
+# --------------------------------------------------------------------------- #
+# Assembly
+# --------------------------------------------------------------------------- #
 MAX_SKILL_ROWS = 5
 # A project's \emph{} tech-stack line carries at most this many comma-separated
 # items -- keep only the most relevant ones (the rest is noise on a packed page).
@@ -44,6 +176,13 @@ MAX_REWORD_EXTRA_WORDS = 4
 REWORD_MATCH_MIN = 0.40
 
 _WORD_RE = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
+
+# Month name (full or 3-letter) -> ordinal, for parsing a project's end-date.
+_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
+# A "Present" end sorts above every dated end.
+_PRESENT_KEY = (9999, 13)
 
 
 class AssembleError(Exception):
@@ -165,6 +304,27 @@ def _validate_experiences(exp_specs: list[EntrySpec], blocks: dict[str, Block]) 
             f"experiences must be in master order {required}, got {ordered}")
 
 
+def _project_end_key(block: Block | None) -> tuple[int, int]:
+    """(year, month) of a project's master end-date, for chronological sorting.
+
+    The date range is the heading's last arg ("Sep 2025 -- Oct 2025",
+    "May 2026 -- Present"); we read the part after the final ``--``/en-dash. A
+    "Present" end sorts above any dated end. An unparseable/absent date sorts
+    last so the real error (unknown key) still surfaces in ``_entry``.
+    """
+    if block is None or not block.heading_args:
+        return (-1, -1)
+    date_arg = block.heading_args[-1]
+    end = re.split(r"\s*(?:--|–|—)\s*", date_arg)[-1].strip()
+    if "present" in end.lower():
+        return _PRESENT_KEY
+    m = re.search(r"([A-Za-z]+)\.?\s+(\d{4})", end)
+    if not m:
+        return (-1, -1)
+    month = _MONTHS.get(m.group(1)[:3].lower(), 0)
+    return (int(m.group(2)), month)
+
+
 def _entry(spec: EntrySpec, blocks: dict[str, Block], want_kind: str) -> str:
     key = spec.key
     if key not in blocks:
@@ -193,16 +353,17 @@ def _skills_section(rows: list[tuple[str, str]]) -> str:
     return "\n".join(body)
 
 
-def assemble(company: str, force: bool = False) -> Path:
+def assemble(company: str) -> Path:
     out_dir = OUTPUT / company
 
     slots = load_slots(company)  # raises SlotsError if missing / structurally wrong
 
     baseline = DATASET / company / "resume.ai.tex"
-    if baseline.exists() and not force:
+    if baseline.exists():
         raise AssembleError(
             f"AI baseline already exists ({baseline.relative_to(REPO_ROOT)}); "
-            f"refusing to clobber human edits. Re-run with --force to regenerate.")
+            f"refusing to clobber a captured benchmark pair. There is no redo path -- "
+            f"delete dataset/{company}/ if you really must regenerate.")
 
     master = MASTER.read_text(encoding="utf-8")
     blocks = tex_util.parse_master(master)
@@ -212,8 +373,13 @@ def assemble(company: str, force: bool = False) -> Path:
     preamble = master[doc_start:exp_marker].rstrip() + "\n"
 
     _validate_experiences(slots.experiences, blocks)
+    # Projects sort by master end-date, most recent first; stable -> a same-date
+    # tie keeps slot order (the model's only remaining ordering call).
+    sorted_projects = sorted(
+        slots.projects, key=lambda p: _project_end_key(blocks.get(p.key)), reverse=True)
+
     experiences = "\n\n".join(_entry(e, blocks, "experience") for e in slots.experiences)
-    projects = "\n\n".join(_entry(p, blocks, "project") for p in slots.projects)
+    projects = "\n\n".join(_entry(p, blocks, "project") for p in sorted_projects)
     skills = _skills_section(slots.skills)
 
     parts = [
@@ -247,18 +413,16 @@ def assemble(company: str, force: bool = False) -> Path:
     (out_dir / "resume.tex").write_text(resume_tex, encoding="utf-8")
 
     # AI-phase signal for the Stop-hook baseline capture + watch.py (see ai_phase).
-    ai_phase.mark(out_dir, company, force)
+    ai_phase.mark(out_dir, company)
     return out_dir / "resume.tex"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Assemble resume.tex from a slot file.")
     ap.add_argument("company", help="company stem under output/")
-    ap.add_argument("--force", action="store_true",
-                    help="regenerate even if an AI baseline already exists")
     args = ap.parse_args()
     try:
-        path = assemble(args.company, args.force)
+        path = assemble(args.company)
     except (AssembleError, SlotsError) as e:
         print(f"assemble_resume: {e}", file=sys.stderr)
         return 1

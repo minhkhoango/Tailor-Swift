@@ -9,7 +9,7 @@ import unittest
 from _helpers import BLOCKS, TailorTempCase
 import ai_phase
 import assemble_resume as A
-from slots import BulletSpec, EntrySpec, SlotsError
+from assemble_resume import BulletSpec, EntrySpec, SlotsError
 
 
 class BulletRendering(unittest.TestCase):
@@ -107,14 +107,39 @@ class FullAssemble(TailorTempCase):
             A.assemble(self.company)
 
     def test_refuses_to_clobber_existing_baseline(self) -> None:
+        # A captured baseline is a hard stop -- there is no redo/force path.
         self.write_slots(self.valid_slot_data())
         self.dataset_dir.mkdir(parents=True, exist_ok=True)
         (self.dataset_dir / "resume.ai.tex").write_text("human", encoding="utf-8")
         with self.assertRaises(A.AssembleError):
-            A.assemble(self.company, force=False)
-        # force overrides the clobber guard
-        out = A.assemble(self.company, force=True)
-        self.assertTrue(out.exists())
+            A.assemble(self.company)
+
+
+class ProjectOrdering(unittest.TestCase):
+    def test_end_date_key_present_beats_dated(self) -> None:
+        # "Present" sorts above any dated end; dated ends sort by (year, month).
+        self.assertEqual(A._project_end_key(BLOCKS["tailor_swift"]), A._PRESENT_KEY)
+        self.assertGreater(A._project_end_key(BLOCKS["local_lens"]),
+                           A._project_end_key(BLOCKS["pr_pilot"]))
+        self.assertGreater(A._project_end_key(BLOCKS["p4_stack"]),
+                           A._project_end_key(BLOCKS["autoly"]))
+
+    def test_unknown_block_sorts_last(self) -> None:
+        self.assertEqual(A._project_end_key(None), (-1, -1))
+
+
+class FullAssembleOrdering(TailorTempCase):
+    def test_projects_emitted_chronologically_regardless_of_slot_order(self) -> None:
+        data = self.valid_slot_data()
+        # Slot lists the OLDER project first; the assembler must reorder by date.
+        data["projects"] = [
+            {"key": "pr_pilot", "bullets": [{"id": 1}]},       # Oct 2025
+            {"key": "local_lens", "bullets": [{"id": 1}]},     # June 2026
+        ]
+        self.write_slots(data)
+        out = A.assemble(self.company)
+        tex = out.read_text(encoding="utf-8")
+        self.assertLess(tex.index("Local Lens"), tex.index("PR Pilot"))
 
 
 if __name__ == "__main__":
