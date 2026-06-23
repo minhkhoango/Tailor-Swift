@@ -105,6 +105,28 @@ class Spillover(unittest.TestCase):
         self.assertFalse(fields.rendered)
 
 
+class FormatReport(unittest.TestCase):
+    def _report(self, verdict: str, flagged: bool, **kw: object) -> FitReport:
+        bullets = [BulletReport(1, "lead bullet", True, 2, 9, 1.0, False),
+                   BulletReport(2, "danger bullet", True, 2, 1, 1.0, flagged)]
+        return FitReport("Acme", 1, 0.97, 40.0, 740.0, bullets, verdict, **kw)  # type: ignore[arg-type]
+
+    def test_clean_is_one_line(self) -> None:
+        out = F.format_report(self._report("OK", flagged=False))
+        self.assertEqual(out.count("\n"), 0)
+        self.assertIn("Acme: OK", out)
+        self.assertIn("fullness 0.97", out)
+        self.assertIn("spillover 0", out)
+        # no per-bullet table on the clean path
+        self.assertNotIn("[01]", out)
+
+    def test_actionable_shows_only_flagged_bullet(self) -> None:
+        out = F.format_report(self._report("SPILLOVER", flagged=True))
+        self.assertIn("Acme: SPILLOVER", out)
+        self.assertIn("[02] FLAG", out)        # the flagged bullet is surfaced
+        self.assertNotIn("[01]", out)          # the OK bullet is not
+
+
 class ReportToDict(unittest.TestCase):
     def test_shape(self) -> None:
         r = FitReport("Acme", 1, 0.97, 40.0, 740.0,

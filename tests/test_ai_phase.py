@@ -35,22 +35,22 @@ class LockProtocol(unittest.TestCase):
     def test_mark_then_fresh(self) -> None:
         d = self._co("acme")
         self.assertFalse(ai_phase.is_fresh(d))
-        ai_phase.mark(d, "acme", force=False)
+        ai_phase.mark(d, "acme")
         self.assertTrue(ai_phase.is_fresh(d))
         self.assertFalse(ai_phase.is_stale(d))
 
     def test_mark_is_idempotent_keeps_first_stamp(self) -> None:
         d = self._co("acme")
-        ai_phase.mark(d, "acme", force=True)
+        ai_phase.mark(d, "acme")
         first = ai_phase.read(d)
-        ai_phase.mark(d, "acme", force=False)  # must NOT overwrite
+        ai_phase.mark(d, "acme")  # must NOT overwrite
         self.assertEqual(ai_phase.read(d), first)
         assert first is not None
-        self.assertTrue(first["force"])
+        self.assertEqual(first["company"], "acme")
 
     def test_clear_removes(self) -> None:
         d = self._co("acme")
-        ai_phase.mark(d, "acme", force=False)
+        ai_phase.mark(d, "acme")
         ai_phase.clear(d)
         self.assertFalse(ai_phase.is_fresh(d))
         self.assertIsNone(ai_phase.read(d))
@@ -58,7 +58,7 @@ class LockProtocol(unittest.TestCase):
 
     def test_stale_when_old(self) -> None:
         d = self._co("acme")
-        ai_phase.mark(d, "acme", force=False)
+        ai_phase.mark(d, "acme")
         old = time.time() - (ai_phase.STALE_SECONDS + 60)
         os.utime(ai_phase.lock_path(d), (old, old))
         self.assertTrue(ai_phase.is_stale(d))
@@ -73,8 +73,8 @@ class LockProtocol(unittest.TestCase):
         self.assertIsNone(ai_phase.read(d))
 
     def test_find_locked(self) -> None:
-        ai_phase.mark(self._co("a"), "a", force=False)
-        ai_phase.mark(self._co("b"), "b", force=False)
+        ai_phase.mark(self._co("a"), "a")
+        ai_phase.mark(self._co("b"), "b")
         self._co("c")  # no lock
         found = sorted(p.name for p in ai_phase.find_locked(self.root))
         self.assertEqual(found, ["a", "b"])

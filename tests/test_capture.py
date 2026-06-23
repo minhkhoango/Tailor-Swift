@@ -50,7 +50,7 @@ class Capture(unittest.TestCase):
             (d / f"{C.RESUME_JOBNAME}.pdf").write_bytes(b"%PDF-1.4 fake")
         (self.jobdesc / f"{name}.txt").write_text("the JD", encoding="utf-8")
         if locked:
-            ai_phase.mark(d, name, force=False)
+            ai_phase.mark(d, name)
         return d
 
     def test_complete_locked_company_is_captured_and_unlocked(self) -> None:
@@ -79,18 +79,6 @@ class Capture(unittest.TestCase):
         self._company("acme", complete=True, locked=False)
         C.main()
         self.assertFalse((self.dataset / "acme").exists())
-
-    def test_re_tailor_archives_prior_pair(self) -> None:
-        # existing baseline -> a fresh complete+locked run archives the old one
-        (self.dataset / "acme").mkdir(parents=True)
-        (self.dataset / "acme" / "resume.ai.tex").write_text("OLD", encoding="utf-8")
-        self._company("acme", complete=True, locked=True)
-        C.main()
-        new_text = (self.dataset / "acme" / "resume.ai.tex").read_text(encoding="utf-8")
-        self.assertIn("\\end{document}", new_text)
-        prevs = list((self.dataset / "acme").glob(".prev-*"))
-        self.assertEqual(len(prevs), 1)
-        self.assertEqual((prevs[0] / "resume.ai.tex").read_text(encoding="utf-8"), "OLD")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 The lock is the one signal that says "an AI /tailor turn is mid-flight for this
 company". Three modules used to each know its on-disk shape independently:
 
-  * ``assemble_resume.py`` WROTE ``{company, ts, force}`` by hand,
+  * ``assemble_resume.py`` WROTE ``{company, ts}`` by hand,
   * ``capture_baseline.py`` SCANNED for the locks, judged staleness with its own
     ``STALE_SECONDS = 600``, and unlinked them,
   * ``watch.py`` (in src/) re-read the same file and re-declared the SAME
@@ -33,7 +33,7 @@ def lock_path(out_dir: Path) -> Path:
     return out_dir / LOCK_NAME
 
 
-def mark(out_dir: Path, company: str, force: bool) -> None:
+def mark(out_dir: Path, company: str) -> None:
     """Stamp the AI-phase lock for ``company`` (idempotent: keep the first stamp).
 
     Written by the assembler at the start of a tailor. Re-stamping would reset the
@@ -43,7 +43,7 @@ def mark(out_dir: Path, company: str, force: bool) -> None:
     if lock.exists():
         return
     lock.write_text(
-        json.dumps({"company": company, "ts": time.time(), "force": force}),
+        json.dumps({"company": company, "ts": time.time()}),
         encoding="utf-8",
     )
 

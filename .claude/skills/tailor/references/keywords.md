@@ -74,18 +74,16 @@ Intel Quartus Prime Lite
 
 ## FORBIDDEN (never put on the page)
 
-> The machine-checkable FORBIDDEN list is enforced by
-> `scripts/lint_honesty.py` (its module constants are the single source of
-> truth; the save-hook runs it automatically). This list is the human-readable
-> mirror — keep the two in sync. The linter catches the mechanical cases; the
-> judgment cases (category relabeling, attribution) stay with you.
+> This FORBIDDEN list is the single source of truth, applied by the model from
+> `references/honesty-rules.md` during the tailor (nothing lints it now). The
+> save-hook still auto-checks number-traceability + the PR-Pilot either/or bullet;
+> the judgment cases (category relabeling, attribution) stay with you.
 
 - **Tech Khoa hasn't touched:** Java, Kubernetes, Rust, Go, .NET, Angular, Vue,
   Solana, Spring. (If a genuinely defensible source ever emerges, move it up and
   note the source — until then, off-limits.)
 - **Scale Khoa didn't operate at:** large-scale, production-grade, high-throughput.
 - **RAG** — LinkedIn Outreach is rank/tier-based, not embedding-based.
-- **XGBoost ... 93%** — that accuracy jump was a teammate's work at FPT.
 - **Resume buzzwords:** spearheaded, leveraged, owned, world-class, 10x,
   best-in-class, synergize.
 
