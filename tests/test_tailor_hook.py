@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # pyright: reportPrivateUsage=false
-"""Tests for post_save_build: the assemble -> compile -> fit -> honesty chain,
-plus the two deterministic honesty checks it now owns (number-traceability +
-the PR-Pilot either/or bullet).
+"""Tests for tailor_hook: the assemble -> compile -> fit -> honesty chain,
+plus the one deterministic honesty check it now owns (number-traceability).
 
 Failure paths and the fit-JSON seam are driven with monkeypatched stages so they
 run without pdflatex. One real end-to-end build is included, skipped unless both
@@ -16,8 +15,8 @@ from unittest import mock
 
 from _helpers import BLOCKS, TailorTempCase, has_pdflatex, has_pdfplumber
 import assemble_resume as A
-import post_save_build as P
-import tex_util as T
+import tailor_hook as P
+import tex_parse as T
 
 
 # --------------------------------------------------------------------------- #
@@ -123,15 +122,6 @@ class HonestyFlags(TailorTempCase):
         self.write_slots(self.valid_slot_data())
         A.assemble(self.company)
 
-    def test_real_resume_has_no_prpilot_or_buzzword_noise(self) -> None:
-        # An assembled resume carries no PR-Pilot either/or flag. It MAY carry the
-        # known education-number quirk (the always-copied ICPC bullet's numbers
-        # live outside any @key block, so they never trace) -- pre-existing
-        # advisory noise we ignore here.
-        self._assemble()
-        flags = P.honesty_flags(self.company)
-        self.assertFalse(any("PR-Pilot" in f for f in flags))
-
     def test_scoped_numbers_flag_untraceable_metric(self) -> None:
         self._assemble()
         tex = (self.out_dir / "resume.tex").read_text(encoding="utf-8")
@@ -140,15 +130,6 @@ class HonestyFlags(TailorTempCase):
         (self.out_dir / "resume.tex").write_text(tex, encoding="utf-8")
         flags = P.honesty_flags(self.company)
         self.assertTrue(any("99999" in f for f in flags))
-
-    def test_both_prpilot_bullets_flagged(self) -> None:
-        self.write("resume.tex",
-                   "\\begin{document}\n"
-                   f"\\resumeItem{{{P.PRPILOT_SHORT_SIG} engineers from a thread}}\n"
-                   f"\\resumeItem{{{P.PRPILOT_LONG_SIG} research summary}}\n"
-                   "\\end{document}\n")
-        flags = P.honesty_flags(self.company)
-        self.assertTrue(any("PR-Pilot" in f for f in flags))
 
     def test_missing_resume(self) -> None:
         flags = P.honesty_flags(self.company)
@@ -159,6 +140,46 @@ class HonestyLine(unittest.TestCase):
     def test_clean_and_flags(self) -> None:
         self.assertEqual(P.honesty_line([]), "honesty: clean")
         self.assertEqual(P.honesty_line(["a", "b"]), "honesty: FLAGS [a; b]")
+
+
+# --------------------------------------------------------------------------- #
+# Structure: the project-count advisory (always exactly three)
+# --------------------------------------------------------------------------- #
+class StructureSegment(TailorTempCase):
+    def _slots_with_projects(self, n: int) -> dict[str, object]:
+        data = self.valid_slot_data()
+        data["projects"] = [{"key": f"p{i}", "bullets": [{"id": 1}]} for i in range(n)]
+        return data
+
+    def test_three_projects_no_warning(self) -> None:
+        self.write_slots(self._slots_with_projects(P.EXPECTED_PROJECTS))
+        warn, line = P.structure_segment(self.company)
+        self.assertFalse(warn)
+        self.assertEqual(line, f"structure: {P.EXPECTED_PROJECTS} projects")
+
+    def test_wrong_count_warns(self) -> None:
+        self.write_slots(self._slots_with_projects(P.EXPECTED_PROJECTS + 1))
+        warn, line = P.structure_segment(self.company)
+        self.assertTrue(warn)
+        assert line is not None
+        self.assertIn("WARN", line)
+        self.assertIn(f"{P.EXPECTED_PROJECTS + 1} projects", line)
+
+    def test_no_slot_file_is_silent(self) -> None:
+        warn, line = P.structure_segment(self.company)
+        self.assertFalse(warn)
+        self.assertIsNone(line)
+
+    def test_warn_keeps_report_actionable_without_flipping_ok(self) -> None:
+        self.write("resume.tex", "ok")
+        self.write_slots(self._slots_with_projects(P.EXPECTED_PROJECTS + 1))
+        fit_payload = {"ok": True, "verdict": "OK", "text": "fit: OK"}
+        with mock.patch.object(P, "_compile", return_value=(True, "")), \
+             mock.patch.object(P, "_fit_json", return_value=(fit_payload, "fit: OK")), \
+             mock.patch.object(P, "honesty_flags", return_value=[]):
+            rep = P.build_and_check(self.company)
+        self.assertTrue(rep.ok)                       # advisory: fit+honesty still clean
+        self.assertIn("structure: WARN", rep.text)    # but the warning is surfaced
 
 
 @unittest.skipUnless(has_pdflatex() and has_pdfplumber(),

@@ -40,9 +40,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-import ai_phase
-import tex_util
-from tex_util import Block, match_braces
+import tailor_lock
+import tex_parse
+from tex_parse import Block, match_braces
 from paths import DATASET, MASTER, OUTPUT, REPO_ROOT
 
 
@@ -191,7 +191,7 @@ class AssembleError(Exception):
 
 def _reword_tokens(body: str) -> list[str]:
     """Lowercased word tokens of a bullet body, for length/overlap comparison."""
-    s = tex_util.replace_href(body)
+    s = tex_parse.replace_href(body)
     s = re.sub(r"\\[A-Za-z]+", " ", s)        # strip control sequences
     s = s.replace("{", " ").replace("}", " ")
     return [t.lower() for t in _WORD_RE.findall(s)]
@@ -366,7 +366,7 @@ def assemble(company: str) -> Path:
             f"delete dataset/{company}/ if you really must regenerate.")
 
     master = MASTER.read_text(encoding="utf-8")
-    blocks = tex_util.parse_master(master)
+    blocks = tex_parse.parse_master(master)
 
     doc_start = master.index("\\documentclass")
     exp_marker = master.index("%-----------EXPERIENCE-----------")
@@ -412,8 +412,8 @@ def assemble(company: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "resume.tex").write_text(resume_tex, encoding="utf-8")
 
-    # AI-phase signal for the Stop-hook baseline capture + watch.py (see ai_phase).
-    ai_phase.mark(out_dir, company)
+    # AI-phase signal for the Stop-hook baseline capture + watch.py (see tailor_lock).
+    tailor_lock.mark(out_dir, company)
     return out_dir / "resume.tex"
 
 

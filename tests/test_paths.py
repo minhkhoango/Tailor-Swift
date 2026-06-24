@@ -2,7 +2,7 @@
 # pyright: reportUnusedImport=false
 """Tests for paths.classify_output: the single output-file classifier.
 
-``import _helpers`` is kept for its path-setup side effect (see test_ai_phase).
+``import _helpers`` is kept for its path-setup side effect (see test_tailor_lock).
 """
 
 from __future__ import annotations

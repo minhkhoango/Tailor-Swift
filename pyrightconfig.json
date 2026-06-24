@@ -2,7 +2,7 @@
   "typeCheckingMode": "strict",
   "venvPath": ".",
   "venv": ".venv",
-  "extraPaths": [".claude/skills/tailor/scripts", "src"],
+  "extraPaths": [".claude/skills/tailor/scripts"],
   "reportMissingTypeStubs": false,
   "exclude": [
     "**/__pycache__",

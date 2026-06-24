@@ -1,0 +1,4 @@
+{
+  "_note": "ioe bullet 1 reworded with 6 extra trailing words (cap is 4) -> assembler must reject. Text-deterministic, no compile.",
+  "assemble_error": "pads its source"
+}

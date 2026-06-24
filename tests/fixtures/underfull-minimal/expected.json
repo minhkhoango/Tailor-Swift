@@ -1,0 +1,7 @@
+{
+  "_note": "One project, one bullet each -> the page is far from full (clear UNDERFULL, never borderline). Also exercises structure WARN (1 != 3 projects).",
+  "verdict": "UNDERFULL",
+  "fullness_range": [0.0, 0.9],
+  "project_count": 1,
+  "structure_warn": true
+}

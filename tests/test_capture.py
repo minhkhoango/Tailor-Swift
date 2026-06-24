@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 import _helpers  # noqa: F401  (path setup)
-import ai_phase
+import tailor_lock
 import capture_baseline as C
 
 
@@ -50,7 +50,7 @@ class Capture(unittest.TestCase):
             (d / f"{C.RESUME_JOBNAME}.pdf").write_bytes(b"%PDF-1.4 fake")
         (self.jobdesc / f"{name}.txt").write_text("the JD", encoding="utf-8")
         if locked:
-            ai_phase.mark(d, name)
+            tailor_lock.mark(d, name)
         return d
 
     def test_complete_locked_company_is_captured_and_unlocked(self) -> None:
@@ -58,22 +58,22 @@ class Capture(unittest.TestCase):
         C.main()
         self.assertTrue((self.dataset / "acme" / "resume.ai.tex").exists())
         self.assertTrue((self.dataset / "acme" / "job_description.txt").exists())
-        self.assertFalse(ai_phase.is_fresh(d))  # lock cleared
+        self.assertFalse(tailor_lock.is_fresh(d))  # lock cleared
 
     def test_incomplete_fresh_lock_is_left_alone(self) -> None:
         d = self._company("acme", complete=False, locked=True)
         C.main()
         self.assertFalse((self.dataset / "acme" / "resume.ai.tex").exists())
-        self.assertTrue(ai_phase.is_fresh(d))  # lock kept for next turn
+        self.assertTrue(tailor_lock.is_fresh(d))  # lock kept for next turn
 
     def test_incomplete_stale_lock_is_dropped(self) -> None:
         d = self._company("acme", complete=False, locked=True)
-        old = time.time() - (ai_phase.STALE_SECONDS + 60)
+        old = time.time() - (tailor_lock.STALE_SECONDS + 60)
         import os
-        os.utime(ai_phase.lock_path(d), (old, old))
+        os.utime(tailor_lock.lock_path(d), (old, old))
         C.main()
         self.assertFalse((self.dataset / "acme" / "resume.ai.tex").exists())
-        self.assertIsNone(ai_phase.read(d))  # abandoned lock removed
+        self.assertIsNone(tailor_lock.read(d))  # abandoned lock removed
 
     def test_unlocked_company_is_ignored(self) -> None:
         self._company("acme", complete=True, locked=False)

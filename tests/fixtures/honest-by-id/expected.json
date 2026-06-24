@@ -1,0 +1,6 @@
+{
+  "_note": "All bullets pulled verbatim by id -> honesty clean by construction; exactly 3 projects -> no structure WARN. No compile needed.",
+  "honesty_flags": [],
+  "project_count": 3,
+  "structure_warn": false
+}

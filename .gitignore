@@ -5,6 +5,9 @@ __pycache__/
 
 *.pyc
 
+# live watcher singleton lock
+.watch.pid
+
 # LaTeX build artifacts
 *.aux
 *.log

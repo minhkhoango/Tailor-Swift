@@ -19,7 +19,6 @@ SCRIPTS = Path(__file__).resolve().parent          # .../tailor/scripts
 SKILL_DIR = SCRIPTS.parent                         # .../tailor
 REPO_ROOT = SCRIPTS.parents[3]                     # scripts -> tailor -> skills -> .claude -> repo
 
-SRC = REPO_ROOT / "src"                            # build_resume.py / build_cover_letter.py live here
 OUTPUT = REPO_ROOT / "output"
 DATASET = REPO_ROOT / "dataset"
 JOBDESC = REPO_ROOT / "jobDescription"

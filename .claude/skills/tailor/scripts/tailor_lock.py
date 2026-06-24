@@ -7,7 +7,7 @@ company". Three modules used to each know its on-disk shape independently:
   * ``assemble_resume.py`` WROTE ``{company, ts}`` by hand,
   * ``capture_baseline.py`` SCANNED for the locks, judged staleness with its own
     ``STALE_SECONDS = 600``, and unlinked them,
-  * ``watch.py`` (in src/) re-read the same file and re-declared the SAME
+  * ``watch.py`` (in scripts/) re-read the same file and re-declared the SAME
     ``STALE_SECONDS = 600`` to decide whether to skip a rebuild.
 
 That schema, the staleness window, and the lock lifecycle now live here once.

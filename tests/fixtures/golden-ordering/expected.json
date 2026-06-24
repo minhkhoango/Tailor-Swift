@@ -1,0 +1,4 @@
+{
+  "_note": "Projects listed p4_stack, tailor_swift, local_lens; assembler must re-sort by master end-date. expected.tex is the byte-exact golden output. Pure text, no compile.",
+  "golden_tex": "expected.tex"
+}

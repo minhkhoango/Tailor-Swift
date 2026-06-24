@@ -1,0 +1,8 @@
+{
+  "_note": "Real shipped Etched resume (Etched_RTL), frozen snapshot, all-verbatim master bullets. The live slot once reworded ioe bullet 2, but after master ioe bullet 1 was shortened that reword exceeds the +4-word guard; the snapshot now pins the honest verbatim form, which packs to a clean 1-page OK. Honesty-clean is covered by honest-by-id.",
+  "verdict": "OK",
+  "fullness_range": [0.95, 1.0],
+  "page_count": 1,
+  "project_count": 3,
+  "structure_warn": false
+}

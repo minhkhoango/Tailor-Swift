@@ -1,0 +1,16 @@
+{
+  "company": "GoldenOrdering",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "projects": [
+    {"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "tailor_swift", "emph": "Python, pytest, JSON", "bullets": [{"id": 1}, {"id": 2}]},
+    {"key": "local_lens", "emph": "ONNX, PaddleOCR, WebGPU", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "skills": [
+    ["Languages", "Python, C++, SQL"],
+    ["Developer Tools", "Git, Linux, Docker"]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "company": "RewordTooLong",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"text": "Connected a Twilio phone number to GPT-4o-mini, achieving 1.8-second end-to-end call latency across many concurrent production user sessions reliably worldwide"}, {"id": 2}, {"id": 3}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}
+  ],
+  "projects": [
+    {"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]},
+    {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]},
+    {"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "skills": [
+    ["Languages", "Python, C++"]
+  ]
+}

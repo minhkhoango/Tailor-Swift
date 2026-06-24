@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Shared LaTeX parsing primitives for the /tailor scripts.
 
-Single home for the tex parsing reused by the assembler, the honesty linter,
-the project scorer, and the fit checker -- so there is exactly one brace
-matcher, one comment stripper, and one master-block parser. Pure stdlib.
+Single home for the tex parsing reused by the assembler, the save-hook honesty
+check, and the fit checker -- so there is exactly one brace matcher, one comment
+stripper, and one master-block parser. Pure stdlib.
 
 Public surface:
     match_braces(s, i)        -> (inner, index_after_close)

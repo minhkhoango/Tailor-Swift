@@ -20,15 +20,12 @@ inferable from Khoa's real work (source noted where it isn't obvious).
 Python, JavaScript, TypeScript, C++, SQL, HTML/CSS, Bash / Shell Scripting
 
 ### AI / ML
-Machine Learning, Deep Learning, Neural Networks, AI, genAI, LLM, NLP,
+Machine Learning, Deep Learning, Neural Networks, AI, genAI, LLM, NLP, RAG
 Prompt Engineering, AI agent, PyTorch, Scikit-learn, Claude API, PaddleOCR, ONNX
+chromedb, openai, sentence_transformers, groq
 - *Deep Learning / Neural Networks*: Coursera DL Specialization + CS50 AI, plus
   XGBoost / Random Forest / PyTorch in work.
 - *agentic workflow*: **JD-conditional** — only if the JD itself uses "agent/agentic".
-
-### Information Retrieval
-Information Retrieval, Ranked Retrieval, Few-shot Retrieval
-- Source: LinkedIn Outreach (tier/rank-based — **never** call it RAG).
 
 ### Software Engineering / Backend
 OOP, REST APIs, Error Handling, Retry Logic, Type Hints, backend, full-stack,
@@ -66,7 +63,7 @@ SQL, SQLite
 - Source: Autoly (SQLite + sqlite3 + auth). No SQL at FPT (CSV-based).
 
 ### Hardware / Digital Logic
-Verilog, SystemVerilog, HDL, Digital Logic, FPGA, Intel Cyclone V,
+Verilog, SystemVerilog, Digital Logic, FPGA, Intel Cyclone V,
 Intel Quartus Prime Lite
 - Source: FSU Engineering Tools Lab coursework.
 
@@ -76,14 +73,13 @@ Intel Quartus Prime Lite
 
 > This FORBIDDEN list is the single source of truth, applied by the model from
 > `references/honesty-rules.md` during the tailor (nothing lints it now). The
-> save-hook still auto-checks number-traceability + the PR-Pilot either/or bullet;
-> the judgment cases (category relabeling, attribution) stay with you.
+> save-hook still auto-checks number-traceability; the judgment cases (category
+> relabeling, attribution) stay with you.
 
 - **Tech Khoa hasn't touched:** Java, Kubernetes, Rust, Go, .NET, Angular, Vue,
   Solana, Spring. (If a genuinely defensible source ever emerges, move it up and
   note the source — until then, off-limits.)
 - **Scale Khoa didn't operate at:** large-scale, production-grade, high-throughput.
-- **RAG** — LinkedIn Outreach is rank/tier-based, not embedding-based.
 - **Resume buzzwords:** spearheaded, leveraged, owned, world-class, 10x,
   best-in-class, synergize.
 

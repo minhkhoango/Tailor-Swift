@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false, reportUnusedImport=false
 """Tests for the deterministic fit-check core (no PDF / pdfplumber needed).
 
-``import _helpers`` is kept for its path-setup side effect (see test_ai_phase).
+``import _helpers`` is kept for its path-setup side effect (see test_tailor_lock).
 """
 
 from __future__ import annotations

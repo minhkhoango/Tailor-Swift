@@ -38,8 +38,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-# Shared tex parsing lives in tex_util (same dir; on sys.path when run as a script).
-from tex_util import (  # noqa: E402
+# Shared tex parsing lives in tex_parse (same dir; on sys.path when run as a script).
+from tex_parse import (  # noqa: E402
     extract_skill_rows,
     replace_href as _replace_href,
     resume_items as extract_resume_items,
@@ -144,7 +144,7 @@ class FitReport:
 # --------------------------------------------------------------------------- #
 # Pure core: tex parsing
 # (match_braces / strip_tex_comments / replace_href / resume_items now live in
-#  tex_util; imported above. normalize_bullet stays here -- it is alignment-
+#  tex_parse; imported above. normalize_bullet stays here -- it is alignment-
 #  specific tokenization for matching against rendered PDF words.)
 # --------------------------------------------------------------------------- #
 def normalize_bullet(raw_tex: str) -> list[str]:

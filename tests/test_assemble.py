@@ -7,7 +7,7 @@ from __future__ import annotations
 import unittest
 
 from _helpers import BLOCKS, TailorTempCase
-import ai_phase
+import tailor_lock
 import assemble_resume as A
 from assemble_resume import BulletSpec, EntrySpec, SlotsError
 
@@ -97,10 +97,10 @@ class FullAssemble(TailorTempCase):
         self.assertIn("\\section{Projects}", tex)
         self.assertIn(r"\textbf{Languages}", tex)
 
-    def test_assemble_writes_ai_phase_lock(self) -> None:
+    def test_assemble_writes_tailor_lock(self) -> None:
         self.write_slots(self.valid_slot_data())
         A.assemble(self.company)
-        self.assertTrue(ai_phase.is_fresh(self.out_dir))
+        self.assertTrue(tailor_lock.is_fresh(self.out_dir))
 
     def test_missing_slot_file_raises_slotserror(self) -> None:
         with self.assertRaises(SlotsError):

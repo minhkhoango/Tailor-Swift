@@ -3,12 +3,12 @@
 Only runs with **`--cover`** (e.g. `/tailor --cover Stash`, or "also write a cover letter for
 Stash"). Default `/tailor` writes the resume only.
 
-Output: `output/<company>/cover_letter.tex`, compiled to `Khoa_Ngo_cover_letter.pdf` by
-`build_cover_letter.py` (which the save-hook runs automatically when you write the `.tex`).
+Output: `output/<company>/cover_letter.tex`, compiled to `Khoa_Ngo_cover_letter.pdf` by the
+save-hook, which compiles it in-process via the skill's own compile core when you write the `.tex`.
 Template: `assets/cover_letter.tex`. No markdown, no pandoc.
 
 **The body is fixed.** `assets/cover_letter.tex` already contains the vetted voice-anchor prose
-(opening hook + IOE + FPT + Local Lens + LinkedIn Outreach — all four stories, never cut). You do
+(opening hook + IOE + FPT + Local Lens — all three stories, never cut). You do
 **not** write or pick paragraphs. Only two things vary per JD: **`<<Company>>`** (recipient +
 salutation) and the single **`<<WHY_COMPANY>>`** paragraph between the
 `% @lint:why-company-start` / `% @lint:why-company-end` sentinels.
@@ -46,13 +46,13 @@ Copy the template to `output/<company>/cover_letter.tex` and fill **only**:
   one researched fact by its **actual value** ("the 74,000+ businesses already on Stash", not
   "your impressive customer base").
 
-Leave the four body stories exactly as they are. Date is `\today` (renders at compile).
+Leave the three body stories exactly as they are. Date is `\today` (renders at compile).
 
 ## 3. Honesty audit
 
-`lint_honesty.py --cover` runs automatically on save and scans **only** the why-company paragraph
-(the fixed body is exempt — it legitimately attributes the teammate's "XGBoost … 93%"). On top of
-that linter, every company fact in `<<WHY_COMPANY>>` must trace 1:1 to the sub-agent's output — no
+Nothing lints the why-company paragraph — this honesty check is **yours** (the fixed body is
+exempt). Every company fact in
+`<<WHY_COMPANY>>` must trace 1:1 to the sub-agent's output — no
 inflating "74,000+" to "75,000+". If research came up empty, keep the insights block as
 `% [none found from <url>]` and write the slot as a one-line
 `<<[TODO: Khoa — why this company]>>` placeholder; flag it in the run summary. Never a generic
@@ -60,6 +60,6 @@ inflating "74,000+" to "75,000+". If research came up empty, keep the insights b
 
 ## 4. Compile
 
-Writing `output/<company>/cover_letter.tex` fires the save-hook, which runs
-`build_cover_letter.py <company>` → `Khoa_Ngo_cover_letter.pdf`. To rebuild manually:
+Writing `output/<company>/cover_letter.tex` fires the save-hook, which compiles it in-process
+→ `Khoa_Ngo_cover_letter.pdf`. To rebuild manually from the repo root:
 `python3 build_cover_letter.py <prefix>`.

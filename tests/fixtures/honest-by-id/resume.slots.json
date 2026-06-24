@@ -1,0 +1,17 @@
+{
+  "company": "HonestById",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]},
+    {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}
+  ],
+  "projects": [
+    {"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]},
+    {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]},
+    {"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}]}
+  ],
+  "skills": [
+    ["Languages", "Python, C++, SQL, JavaScript, TypeScript"],
+    ["AI/ML", "PyTorch, Scikit-learn, Neural Networks, Deep Learning"],
+    ["Developer Tools", "Git, Linux, Docker, AWS"]
+  ]
+}

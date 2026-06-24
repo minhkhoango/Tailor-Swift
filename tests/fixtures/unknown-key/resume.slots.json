@@ -1,0 +1,13 @@
+{
+  "company": "UnknownKey",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}]},
+    {"key": "fpt", "bullets": [{"id": 1}]}
+  ],
+  "projects": [
+    {"key": "does_not_exist", "bullets": [{"id": 1}]}
+  ],
+  "skills": [
+    ["Languages", "Python"]
+  ]
+}

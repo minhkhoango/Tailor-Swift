@@ -6,7 +6,7 @@
 % NO pandoc, NO markdown anywhere.
 %
 % The BODY IS FIXED -- it is Khoa's vetted voice-anchor prose (opening hook +
-% IOE + FPT + Local Lens + LinkedIn Outreach, all four stories, never cut).
+% IOE + FPT + Local Lens, all three stories, never cut).
 % Do NOT edit, reorder, or drop body paragraphs. Only two things vary per JD:
 %   <<Company>>     -- recipient line + salutation
 %   <<WHY_COMPANY>> -- the single "why this company" paragraph, between the
@@ -14,9 +14,9 @@
 %
 % Voice is self-deprecating, specific, narrative -- never corporate.
 % Honesty: every company fact in <<WHY_COMPANY>> traces 1:1 to the research
-% sub-agent (references/honesty-rules.md). No invented numbers. The honesty
-% linter (lint_honesty.py --cover) scans ONLY the why-company paragraph -- the
-% fixed body legitimately attributes the teammate's "XGBoost ... 93%".
+% sub-agent (references/honesty-rules.md). No invented numbers. Nothing lints
+% the why-company paragraph -- that honesty check is yours. The fixed body is
+% exempt: it legitimately attributes the teammate's "XGBoost ... 93%".
 %==============================================================================
 
 % ---------------------------------------------------------------------------
@@ -104,8 +104,6 @@ At Interested Opportunity Engine (tiny startup), the team had built an LLM agent
 At FPT Telecom, we wanted to build a stock-trading system but none of us had touched ML for finance before. I built a Random Forest model at 86\% accuracy on 3 years of Vietnamese stock data, validated against a 3-month holdout. A teammate's XGBoost run later pushed accuracy to 93\%; his model went on to be deployed with \$4{,}000 of test capital.
 
 In my spare time, I got tired of retyping PDF tables into Word for school reports, so I shipped Local Lens, a browser extension that extracts text from images locally. It's at 290+ installs and 60 weekly actives.
-
-More recently, I noticed each 300-character LinkedIn outreach message was eating 25 minutes (sometimes the rest of the evening, depending on whether my butt gave out), so I vibe-coded an agent skill over two days that reads a profile PDF, my resume, GitHub, and personal site to draft a message. Honest result: it sounds nothing like me, arguably worse than zero customization --- but editing its drafts is faster than writing from scratch, so it stays.
 
 %----------WHY THIS COMPANY (the only free-text paragraph)----------
 % @lint:why-company-start

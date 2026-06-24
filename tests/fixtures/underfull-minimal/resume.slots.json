@@ -1,0 +1,13 @@
+{
+  "company": "UnderfullMinimal",
+  "experiences": [
+    {"key": "ioe", "bullets": [{"id": 1}]},
+    {"key": "fpt", "bullets": [{"id": 1}]}
+  ],
+  "projects": [
+    {"key": "p4_stack", "bullets": [{"id": 1}]}
+  ],
+  "skills": [
+    ["Languages", "Python, C++"]
+  ]
+}

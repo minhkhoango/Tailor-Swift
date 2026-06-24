@@ -5,9 +5,9 @@ fires, then note what you caught in the run summary. A flagged-and-fixed trigger
 penalized; a buried stretch discovered later is the only real failure.
 
 > **What fires automatically vs. what's yours.** On save, the hook
-> (`scripts/post_save_build.py`) runs only the two deterministic checks an eyeball
+> (`scripts/tailor_hook.py`) runs only the one deterministic check an eyeball
 > reliably misses: **number-traceability** (rule 1 — every number in an output bullet
-> must trace to a *selected* master block) and the **PR-Pilot either/or** bullet.
+> must trace to a *selected* master block).
 > Everything else below is YOUR checklist — apply it before saving: the FORBIDDEN
 > tech list (rule 2), RAG (rule 5), scale claims (rule 6), buzzwords (rule 7),
 > "agentic" vs. the JD (rule 8), and the judgment rules — category relabeling
@@ -24,14 +24,13 @@ penalized; a buried stretch discovered later is the only real failure.
 3. **No invented dates or companies.** Copy date ranges verbatim.
 4. **No relabeling a project's category.** A Random Forest classifier is not a "ranking model"
    just because the JD says ranking. Reframing in JD vocabulary stops at honest reframings.
-5. **No "RAG".** LinkedIn Outreach is rank/tier-based, not embedding-based. Use "ranked
-   retrieval" / "tier-based retrieval" / "few-shot example retrieval" / "information retrieval".
+5. **No "RAG".** Khoa has no embedding-based retrieval project; never put "RAG" on the page.
 6. **No scale Khoa didn't operate at:** never "large-scale", "production-grade",
    "high-throughput". 290 installs is not "large-scale".
 7. **No generic buzzwords:** spearheaded, leveraged, owned, world-class, 10x, best-in-class,
    synergize.
 8. **"Agentic"** only if the JD itself uses the term.
-9. **The project pool is closed.** Never invent a project. If a JD needs a domain none of the 5
+9. **The project pool is closed.** Never invent a project. If a JD needs a domain none of the pool
     covers, leave it uncovered and flag it in `uncovered must-haves`.
 
 ## Per-source honesty notes

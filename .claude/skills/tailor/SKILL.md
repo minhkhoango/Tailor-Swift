@@ -33,7 +33,7 @@ them (they drift). Read the `@key` blocks each run. Both experiences are always 
 ## Pipeline (per JD)
 1. **Analyze the JD** — role_type, ranked keywords, must-haves, anti-signals.
 2. **Select projects** — judge each `@key` block against the JD's ranked keywords; keep the top
-   few (usually 3) that fill the page. Keep a project's bullets together; don't cherry-pick one down
+   3 that fill the page. Keep a project's bullets together; don't cherry-pick one down
    to a single bullet. Both experiences always in.
 3. **Write `output/<company>/resume.slots.json`** — the slot file (schema below). You do **not**
    hand-write the `.tex`; the assembler builds it (a direct `.tex` edit is overwritten next assemble).
@@ -45,6 +45,8 @@ them (they drift). Read the `@key` blocks each run. Both experiences are always 
 7. **Cover letter** — only with `--cover`. Fill `<<Company>>` + `<<WHY_COMPANY>>`; body is fixed.
    See `references/cover-letter.md`.
 8. **Report** — print the per-JD summary block (below). No `reasoning.md` is written.
+9. **Start the live watcher** (once, after the *final* JD reads `OK` + `honesty: clean`) — launch
+   it in the **background**; never ask the user to start it. See "Local setup & the live watcher".
 
 ## Slot schema (`output/<company>/resume.slots.json`)
 ```json
@@ -70,7 +72,11 @@ them (they drift). Read the `@key` blocks each run. Both experiences are always 
 - **`emph`** (projects only) — replaces the heading's tech-stack `\emph{}` with the **3 most
   JD-relevant** techs (hard cap 3; assembler errors on 4+). Omit to keep the master default.
 - **`skills`** — up to **5** `[category, content]` rows, rebuilt per JD from `references/keywords.md`.
-  Each row must fit one rendered line; escape `&` as `\\&`.
+  Each row must fit one rendered line; escape `&` as `\\&`. **Pack each row full** — add every
+  JD-relevant ALLOWED keyword that still fits the one line (ATS rewards more verbatim matches), and
+  pad sparse rows with adjacent honest keywords from the same category. A half-empty skill row is a
+  wasted line: keep adding until the next term would WRAP, then stop. Never repeat a keyword across
+  rows, and never pull from FORBIDDEN.
 
 **Ordering is automatic** — you don't sort. Experiences are forced to IOE→FPT; projects are sorted
 by their master end-date, most recent first. The only ordering you control: when two projects share
@@ -87,13 +93,23 @@ The report is one line when clean; when not, it shows only the problematic bulle
 - **`OVERFULL`** / **`MULTIPAGE`** — drop the lowest-JD-scoring project. Never drop education,
   header, or either experience.
 - **`WRAP`** on a skill row — prune its lowest-signal entries until it's one line.
-- **`honesty: FLAGS [...]`** — fix each (a stray untraceable number, or both PR-Pilot bullets). The
+- **`structure: WARN`** — the slot has a project count other than 3; add or drop a project so
+  exactly 3 ship. Advisory (won't block), but always fix it — 3 projects is the rule.
+- **`honesty: FLAGS [...]`** — fix each (a stray untraceable number). The
   rest of the honesty audit is yours from `honesty-rules.md` — catch it before you save.
 - **`OK`** + `honesty: clean` — done.
 
-## One-time local setup
-- **Watcher (live PDF + human-final snapshots):** start once and leave running —
-  `.venv/bin/python watch.py` (after `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`).
+## Local setup & the live watcher
+- **Setup (once):** `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
+- **Watcher (live PDF + human-final snapshots) — auto-started, don't ask the user to run it.**
+  As the final step of a run (pipeline step 9), just run it **in the foreground** (it
+  self-detaches — do NOT background it):
+  `.venv/bin/python "$CLAUDE_PROJECT_DIR/.claude/skills/tailor/scripts/watch.py"`. It rebuilds the
+  PDF live and snapshots `dataset/<co>/*.final.tex` on each human edit. The command **always
+  returns instantly** with a one-line verdict — it double-forks a detached daemon (logs to
+  `.watch.log`) when none is running, or prints `already running (pid N)` when one is. It is a
+  **singleton** (`.watch.pid` at the repo root), so launching it every run is safe and idempotent;
+  a fast clean exit is success, NOT a watcher that died — never try to "restart" or debug it.
 - **AI-baseline capture (Stop hook):** in `.claude/settings.local.json`, so the AI's first version
   is snapshotted to `dataset/<co>/resume.ai.tex` when each tailor turn ends:
   ```json

@@ -158,7 +158,7 @@
       {Interested Opportunity Engine}{Tallahassee, FL (Remote)}
       \resumeItemListStart
         \resumeItem{Connected a Twilio phone number to GPT-4o-mini, achieving 1.8-second end-to-end call latency}
-        \resumeItem{Improved call reliability by diagnosing and fixing a call-stability bug, verified stable across 10/10 end-to-end call runs}
+        \resumeItem{Improved call reliability by fixing a call-stability bug, verified stable across 10/10 end-to-end call runs}
         \resumeItem{Delivered a working voice-gateway prototype that enabled the team to integrate their own Mastra agent; the company raised seed funding the following month}
       \resumeItemListEnd
 
@@ -194,10 +194,10 @@
     \resumeProjectHeading
       {\textbf{Tailor Swift} \href{https://github.com/minhkhoango/Tailor-Swift}{\underline{(Github)}} $|$ \emph{Python, Claude Code, LaTeX}}{May 2026 -- Present}
       \resumeItemListStart
-        \resumeItem{Designed an agent skill that reduces resume tailoring time by 67\% (15 to 5 minutes); Used on 45 applications}
+        \resumeItem{Designed an agent skill that reduces resume tailoring time by 67\% (15 to 5 minutes); Tailored 45 resumes}
         \resumeItem{Structured LLM output as 20-line JSON over 182-line LaTeX -- 7$\times$ fewer tokens with no model-written LaTeX}
         \resumeItem{Streamlined fit and honesty checks with Python -- 18$\times$ fewer tokens, 77$\times$ faster than Opus 4.8 eyeballing}
-        \resumeItem{Constructed a 98-test pytest suite (1.1s) over agent scripts and benchmarks that reproduce cited numbers}
+        \resumeItem{Constructed a 92-test pytest suite (1.1s) over agent python scripts}
       \resumeItemListEnd
     
     %=== LOCAL LENS -- Dec 2025 -- Present ===
@@ -214,23 +214,6 @@
         \resumeItem{Built a Vitest + Playwright headless Chromium test suite checking expected UI visuals and quantization parity, validating 830 KB of bundle savings at zero quality loss}
         \resumeItem{Maintained an AWS S3 + CloudFront onboarding and feedback site with 99.9\% uptime}
         \resumeItem{Built the extension UI in React 19 and TypeScript 5.9 (taking 90\% of codebase)}
-      \resumeItemListEnd
-
-    %=== LINKEDIN OUTREACH -- May 2026 -- May 2026 ===
-    % @key: linkedin_outreach
-    % Repo: github.com/minhkhoango/linkedin-outreach | AI helper: Claude Code
-    % Default \emph{} stack: Python, Claude API, Information Retrieval
-    % Other defensible stack: PaddleOCR, pytest, JSON-RPC over stdin/stdout
-    % HARD CONSTRAINT: never the word "RAG" -- retrieval is rank/tier-based, not
-    %   embedding-based. Use "ranked retrieval" / "tier-based retrieval" /
-    %   "few-shot example retrieval" / "information retrieval".
-    \resumeProjectHeading
-      {\textbf{LinkedIn Outreach} \href{https://github.com/minhkhoango/linkedin-outreach}{\underline{(Github)}} $|$ \emph{Python, Claude Code, Information Retrieval}}{May 2026 -- May 2026}
-      \resumeItemListStart
-        \resumeItem{Developed an agent skill that reduces outreach drafting time by 60\% (25 to 10 minutes)}
-        \resumeItem{Architected a tier-based few-shot retrieval system, giving each draft 10 same-tier examples and persistent memory}
-        \resumeItem{Engineered a human-in-the-loop system that diffs drafts against hand-edited versions, distilling voice into voice.md}
-        \resumeItem{Maintained an 11-minute test suite and a QA script that flags 300-character length violations and cringe patterns}
       \resumeItemListEnd
 
     %=== P4-STACK -- Oct 2025 -- Dec 2025 ===
@@ -279,9 +262,10 @@
 \section{Technical Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Languages}{: Python, JavaScript, TypeScript, C++, SQL, HTML/CSS} \\
-     \textbf{AI/ML}{: PyTorch, Scikit-learn, Claude API, PaddleOCR} \\
-     \textbf{Frameworks \& Libraries}{: FastAPI, React, Svelte, Node.js, Pandas} \\
+     \textbf{Languages}{: Python, JavaScript, TypeScript, C++, SQL, HTML/CSS, Bash} \\
+     \textbf{AI/ML}{: PyTorch, Scikit-learn, Claude API, LLM, RAG, Machine Learning, Neural Networks} \\
+     \textbf{Frameworks \& Libraries}{: FastAPI, React, Svelte, Node.js, Pandas, NumPy} \\
+     \textbf{Software Engineering}{: REST APIs, OOP, WebSocket, Error Handling, Software Testing, CI/CD} \\
      \textbf{Developer Tools}{: Git, Linux, Docker, AWS, Azure, Google Colab} \\
     }}
  \end{itemize}

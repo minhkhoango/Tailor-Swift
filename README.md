@@ -39,8 +39,9 @@ number is real — it's checked.
 ```
 jobDescription/        the jobs you want to apply to (input)
 output/<Company>/       the finished resume + cover letter per company
-.claude/skills/tailor/  the skill itself, including assets/master_resume.tex (your source of truth)
-src/                    the build scripts (compile, watch, fit-check)
+.claude/skills/tailor/  the skill itself (compile, watch, fit-check live in its scripts/), including
+                        assets/master_resume.tex (your source of truth)
+build_resume.py         standalone helper to rebuild resume PDFs by hand (build_cover_letter.py too)
 ```
 
 ## Setup

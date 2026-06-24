@@ -26,7 +26,7 @@ import shutil
 import sys
 from pathlib import Path
 
-import ai_phase
+import tailor_lock
 from paths import DATASET, JOBDESC, OUTPUT
 
 RESUME_JOBNAME = "Khoa_Ngo_resume"
@@ -64,16 +64,16 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         pass
 
-    for out_dir in ai_phase.find_locked(OUTPUT):
+    for out_dir in tailor_lock.find_locked(OUTPUT):
         company = out_dir.name
         if _complete(out_dir):
             try:
                 _capture(company)
-                ai_phase.clear(out_dir)
+                tailor_lock.clear(out_dir)
             except OSError:
                 pass  # leave the lock; try again next turn
-        elif ai_phase.is_stale(out_dir):
-            ai_phase.clear(out_dir)  # abandoned run
+        elif tailor_lock.is_stale(out_dir):
+            tailor_lock.clear(out_dir)  # abandoned run
     return 0
 
 

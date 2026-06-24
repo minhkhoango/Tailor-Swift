@@ -1,0 +1,6 @@
+{
+  "_note": "Every project + every bullet -> content overflows well past one page (robust MULTIPAGE, not a borderline OVERFULL). Also structure WARN (5 != 3 projects).",
+  "verdict": "MULTIPAGE",
+  "project_count": 5,
+  "structure_warn": true
+}

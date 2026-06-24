@@ -7,7 +7,7 @@ WITHOUT Claude invoking anything and feeds the combined fit + honesty report bac
 as additionalContext. This file is BOTH the hook adapter and the chain:
 
   * the chain -- assemble the slot file into ``resume.tex``, compile it, measure
-    the 1-page fit, run the two deterministic honesty checks -- exposed as
+    the 1-page fit, run the deterministic honesty check -- exposed as
     ``assemble_and_check`` / ``build_and_check`` / ``cover_check`` (exercised
     in-process by the test suite, no hook needed), and
   * the hook -- read the tool-call JSON on stdin, classify the saved path
@@ -15,16 +15,20 @@ as additionalContext. This file is BOTH the hook adapter and the chain:
     dispatch, and emit the Report text. Never blocks the tool call (exits 0).
 
 Most stages run in-process (assemble + honesty are pure stdlib; the pdflatex
-build is captured from ``latex_build.compile_tex``). Only the fit check stays a
+build is captured from ``pdf_compile.compile_tex``). Only the fit check stays a
 subprocess: it needs pdfplumber from ``.venv``, which the hook's own interpreter
 may lack. It is invoked with ``check_resume_fit.py --json`` and returns a parsed
 report, never scraped text.
 
-HONESTY here is only the two checks an LLM self-audit silently misses:
+HONESTY here is only the one check an LLM self-audit silently misses:
 number-traceability (every number in an output bullet traces to a *selected*
-master block) and the PR-Pilot either/or bullet. The FORBIDDEN-tech / scale /
-buzzword / "agentic" rules are a checklist the model applies from
-``references/honesty-rules.md`` -- they are NOT linted here.
+master block). The FORBIDDEN-tech / scale / buzzword / "agentic" rules are a
+checklist the model applies from ``references/honesty-rules.md`` -- they are NOT
+linted here.
+
+The report also carries a STRUCTURE advisory: a tailored resume always has exactly
+three projects, so a slot file with any other count gets a non-blocking WARN line
+(the page-fit verdict stays the real gate).
 
 Wired in .claude/settings.json under hooks.PostToolUse (matcher Write|Edit|...).
 """
@@ -40,28 +44,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-import tex_util
+import pdf_compile
+import tex_parse
 from assemble_resume import AssembleError, SlotsError, assemble, load_slots
-from paths import MASTER, OUTPUT, REPO_ROOT, SCRIPTS, SRC, VENV_PY, classify_output
-
-# latex_build lives in src/ (the build layer); put it on the path to import it.
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-import latex_build  # noqa: E402
+from paths import MASTER, OUTPUT, REPO_ROOT, SCRIPTS, VENV_PY, classify_output
 
 RESUME_JOBNAME = "Khoa_Ngo_resume"
 COVER_JOBNAME = "Khoa_Ngo_cover_letter"
 CHECKER = SCRIPTS / "check_resume_fit.py"
 
-# PR-Pilot either/or cold-email bullets: these signatures distinguish the two forms.
-PRPILOT_LONG_SIG = "Perplexity-assisted"
-PRPILOT_SHORT_SIG = "Validated by cold-emailing"
+# A tailored resume always carries exactly this many projects (SKILL.md golden
+# rule). Off-by-one is advisory, not fatal -- the page-fit verdict is the real
+# gate -- but it is surfaced so the model packs/prunes to three before relying
+# on fullness alone.
+EXPECTED_PROJECTS = 3
 
 
 # --------------------------------------------------------------------------- #
-# Honesty: the two deterministic checks the model can't reliably self-audit
+# Honesty: the one deterministic check the model can't reliably self-audit
 # --------------------------------------------------------------------------- #
-def _traceable_numbers(company: str, blocks: dict[str, tex_util.Block]) -> set[str]:
+def _traceable_numbers(company: str, blocks: dict[str, tex_parse.Block]) -> set[str]:
     """Numbers an output bullet may legitimately carry: those in the master
     bullets + headings of the *selected* experiences/projects.
 
@@ -78,44 +80,67 @@ def _traceable_numbers(company: str, blocks: dict[str, tex_util.Block]) -> set[s
     chosen = [blocks[k] for k in keys] if keys else list(blocks.values())
     nums: set[str] = set()
     for blk in chosen:
-        nums |= set(tex_util.numbers_in(blk.heading))
+        nums |= set(tex_parse.numbers_in(blk.heading))
         for bullet in blk.bullets:
-            nums |= set(tex_util.numbers_in(bullet))
+            nums |= set(tex_parse.numbers_in(bullet))
     return nums
 
 
 def honesty_flags(company: str) -> list[str]:
     """Deterministic honesty flags for a tailored resume (advisory, never blocks).
 
-    Two checks only: (1) every number in an output bullet must trace to a master
-    bullet/heading of a *selected* block; (2) never ship both PR-Pilot cold-email
-    bullets. The rest of the honesty audit is the model's, from honesty-rules.md.
+    One check only: every number in an output bullet must trace to a master
+    bullet/heading of a *selected* block. The rest of the honesty audit is the
+    model's, from honesty-rules.md.
+
+    Scoped to the EXPERIENCE marker onward. Education lives in the preamble above
+    it and carries static \\resumeItem numbers (ICPC placement, year, team count)
+    that are constants of the resume, not selectable facts -- so they neither
+    trace to nor need to trace to any master block. Scanning them would false-flag
+    every single tailored resume; the slice excludes them.
     """
     resume = OUTPUT / company / "resume.tex"
     if not resume.exists():
         return [f"missing {resume.relative_to(REPO_ROOT)}"]
     tex = resume.read_text(encoding="utf-8")
-    bullets = tex_util.resume_items(tex)
+    exp = tex.find("%-----------EXPERIENCE-----------")
+    bullets = tex_parse.resume_items(tex[exp:] if exp != -1 else tex)
 
     flags: list[str] = []
-    blocks = tex_util.parse_master(MASTER.read_text(encoding="utf-8"))
+    blocks = tex_parse.parse_master(MASTER.read_text(encoding="utf-8"))
     master_nums = _traceable_numbers(company, blocks)
     out_nums: set[str] = set()
     for b in bullets:
-        out_nums |= set(tex_util.numbers_in(b))
+        out_nums |= set(tex_parse.numbers_in(b))
     strays = sorted(out_nums - master_nums)
     if strays:
         flags.append(f"numbers not traceable to master: {', '.join(strays)}")
-
-    scan = " \n ".join(tex_util.replace_href(b) for b in bullets)
-    if PRPILOT_LONG_SIG in scan and PRPILOT_SHORT_SIG in scan:
-        flags.append("both PR-Pilot cold-email bullets present (use exactly one)")
     return flags
 
 
 def honesty_line(flags: list[str]) -> str:
     """One-line honesty verdict."""
     return f"honesty: FLAGS [{'; '.join(flags)}]" if flags else "honesty: clean"
+
+
+def structure_segment(company: str) -> tuple[bool, str | None]:
+    """Project-count advisory for a slot-driven resume: ``(is_warning, line)``.
+
+    A tailored resume always carries exactly ``EXPECTED_PROJECTS`` projects. We
+    read the count from the slot file; when it differs, the returned line is a
+    WARN the model should act on (add or drop a project) before leaning on the
+    fullness number alone. Returns ``(False, None)`` when there is no/invalid
+    slot file (e.g. a direct ``resume.tex`` write) -- nothing to count, so no
+    structure segment is emitted at all.
+    """
+    try:
+        n = len(load_slots(company).projects)
+    except SlotsError:
+        return (False, None)
+    if n != EXPECTED_PROJECTS:
+        return (True, f"structure: WARN {n} projects (must be {EXPECTED_PROJECTS}; "
+                      f"add or drop one to hit {EXPECTED_PROJECTS})")
+    return (False, f"structure: {n} projects")
 
 
 # --------------------------------------------------------------------------- #
@@ -147,10 +172,10 @@ def _run(cmd: list[str]) -> tuple[int, str]:
 
 
 def _compile(tex: Path, jobname: str, passes: int) -> tuple[bool, str]:
-    """Compile in-process via latex_build, capturing its failure tail as text."""
+    """Compile in-process via pdf_compile, capturing its failure tail as text."""
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        ok = latex_build.compile_tex(tex, jobname, passes)
+        ok = pdf_compile.compile_tex(tex, jobname, passes)
     return ok, buf.getvalue().strip()
 
 
@@ -178,14 +203,17 @@ def build_and_check(company: str) -> Report:
                       [f"resume.tex for {company} FAILED to compile:", log[-800:]])
     fit, fit_text = _fit_json(company)
     honesty = honesty_flags(company)
+    struct_warn, s_line = structure_segment(company)
     fit_ok = bool(fit and fit.get("ok"))
-    ok = fit_ok and not honesty
+    ok = fit_ok and not honesty   # advisory project-count WARN does NOT flip ok
     h_line = honesty_line(honesty)
-    # Clean -> one compact line. Actionable -> fit detail + honesty on their own lines.
-    if ok:
-        lines = [f"{fit_text}  |  {h_line}"]
+    segments = [h_line] + ([s_line] if s_line else [])
+    # Clean fit + honesty AND exactly three projects -> one compact line.
+    # Anything actionable (incl. a structure WARN) -> fit + each advisory on its own line.
+    if ok and not struct_warn:
+        lines = [f"{fit_text}  |  " + "  |  ".join(segments)]
     else:
-        lines = [fit_text, h_line]
+        lines = [fit_text, *segments]
     return Report(company, "resume", ok, lines, fit, honesty)
 
 

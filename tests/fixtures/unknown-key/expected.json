@@ -1,0 +1,4 @@
+{
+  "_note": "Project key absent from the closed master pool -> assembler must reject. Text-deterministic, no compile.",
+  "assemble_error": "unknown project key"
+}

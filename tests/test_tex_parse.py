@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # pyright: reportPrivateUsage=false
-"""Tests for tex_util: brace matching, comment stripping, parsing the master."""
+"""Tests for tex_parse: brace matching, comment stripping, parsing the master."""
 
 from __future__ import annotations
 
 import unittest
 
 from _helpers import BLOCKS, MASTER
-import tex_util as T
+import tex_parse as T
 
 
 class MatchBraces(unittest.TestCase):
@@ -66,7 +66,7 @@ class ParseMaster(unittest.TestCase):
     def test_all_keys(self) -> None:
         self.assertEqual(
             sorted(BLOCKS),
-            ["autoly", "fpt", "ioe", "linkedin_outreach", "local_lens",
+            ["autoly", "fpt", "ioe", "local_lens",
              "p4_stack", "pr_pilot", "tailor_swift"])
 
     def test_kinds_and_bullet_counts(self) -> None:
