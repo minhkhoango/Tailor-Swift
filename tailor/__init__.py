@@ -45,7 +45,7 @@ class LLM(Protocol):
 # --------------------------------------------------------------------------- #
 # Per-JD tailoring (the cap-3 fix-up loop)
 # --------------------------------------------------------------------------- #
-def _log_pass(log: RunLogger, stem: str, n: int, slots: Slots,
+def _log_pass(log: RunLogger, stem: str, n: int,
               usage: dict[str, int], report: Report) -> None:
     log.event("llm_call", stem=stem, **{"pass": n}, **usage)
     log.event("fit", stem=stem, **{"pass": n}, fill=report.fill,
@@ -70,13 +70,13 @@ def tailor_one(stem: str, jd_text: str, llm: LLM, chain: Chain, log: RunLogger,
     slots, usage = session.emit(jd_text)
     report = chain(stem, slots_to_data(slots), scratch)
     passes = 1
-    _log_pass(log, stem, passes, slots, usage, report)
+    _log_pass(log, stem, passes, usage, report)
 
     while not report.ok and passes < max_passes:
         slots, usage = session.emit(report.text)
         report = chain(stem, slots_to_data(slots), scratch)
         passes += 1
-        _log_pass(log, stem, passes, slots, usage, report)
+        _log_pass(log, stem, passes, usage, report)
 
     report.passes = passes
     report.uncovered = list(slots.uncovered)

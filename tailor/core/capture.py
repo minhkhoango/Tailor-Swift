@@ -28,6 +28,26 @@ AI_BASELINE = "resume.ai.slots.json"
 HUMAN_FINAL = "resume.final.slots.json"
 
 
+def compact_slots_json(slots_data: dict[str, Any]) -> str:
+    """Serialize slots one top-level key per line, values inline.
+
+    The shipped ``resume.slots.json`` uses ``indent=2``, which explodes every
+    ``{"id": N}`` bullet onto 3 lines (~80 lines total). The dataset baseline is
+    a benchmark artifact read at a glance and diffed section-by-section, so we
+    collapse each top-level value (experiences / projects / skills / uncovered)
+    onto a single line -- ~10 lines instead of ~80, still one diffable line per
+    section.
+    """
+    items = list(slots_data.items())
+    lines = ["{"]
+    for i, (key, value) in enumerate(items):
+        tail = "," if i < len(items) - 1 else ""
+        inline = json.dumps(value, separators=(", ", ": "), ensure_ascii=False)
+        lines.append(f"  {json.dumps(key, ensure_ascii=False)}: {inline}{tail}")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
 def is_frozen(stem: str) -> bool:
     """True when an AI baseline slot already exists -- do not overwrite it."""
     return (DATASET / stem / AI_BASELINE).exists()
@@ -44,7 +64,7 @@ def capture_ai_baseline(stem: str, slots_data: dict[str, Any]) -> Path | None:
     co_dir = DATASET / stem
     co_dir.mkdir(parents=True, exist_ok=True)
     dest = co_dir / AI_BASELINE
-    dest.write_text(json.dumps(slots_data, indent=2), encoding="utf-8")
+    dest.write_text(compact_slots_json(slots_data), encoding="utf-8")
     jd = JOBDESC / f"{stem}.txt"
     if jd.exists():
         shutil.copy2(jd, co_dir / "job_description.txt")
