@@ -2,7 +2,7 @@
 # pyright: reportUnusedImport=false
 """Tests for paths.classify_output: the single output-file classifier.
 
-``import _helpers`` is kept for its path-setup side effect (see test_tailor_lock).
+``import _helpers`` is kept for its path-setup side effect.
 """
 
 from __future__ import annotations
@@ -10,17 +10,19 @@ from __future__ import annotations
 import unittest
 
 import _helpers  # noqa: F401  (path setup)
-from paths import OUTPUT, classify_output
+from tailor.core.paths import OUTPUT, classify_output
 
 
 class ClassifyOutput(unittest.TestCase):
-    def test_slots_resume_cover(self) -> None:
+    def test_slots_and_resume(self) -> None:
         self.assertEqual(classify_output(OUTPUT / "Acme" / "resume.slots.json"),
                          ("Acme", "slots"))
         self.assertEqual(classify_output(OUTPUT / "Acme" / "resume.tex"),
                          ("Acme", "resume"))
-        self.assertEqual(classify_output(OUTPUT / "Acme" / "cover_letter.tex"),
-                         ("Acme", "cover"))
+
+    def test_cover_letter_is_no_longer_watched(self) -> None:
+        # The cover-letter LaTeX path was retired; why_company.md is the only "why".
+        self.assertIsNone(classify_output(OUTPUT / "Acme" / "cover_letter.tex"))
 
     def test_unwatched_name_is_none(self) -> None:
         self.assertIsNone(classify_output(OUTPUT / "Acme" / "notes.txt"))

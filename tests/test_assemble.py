@@ -7,9 +7,8 @@ from __future__ import annotations
 import unittest
 
 from _helpers import BLOCKS, TailorTempCase
-import tailor_lock
-import assemble_resume as A
-from assemble_resume import BulletSpec, EntrySpec, SlotsError
+from tailor.core import assemble_resume as A
+from tailor.core.assemble_resume import BulletSpec, EntrySpec, SlotsError
 
 
 class BulletRendering(unittest.TestCase):
@@ -29,7 +28,7 @@ class BulletRendering(unittest.TestCase):
     def test_reword_padding_rejected(self) -> None:
         # Take a real master bullet and pad it well past the +4-word ceiling.
         base = BLOCKS["fpt"].bullets[0]
-        from assemble_resume import _reword_tokens
+        from tailor.core.assemble_resume import _reword_tokens
         padded = base + " " + " ".join(f"extraword{i}" for i in range(12))
         # only rejected if it still resembles its source (ratio >= floor)
         self.assertTrue(_reword_tokens(padded))
@@ -97,21 +96,8 @@ class FullAssemble(TailorTempCase):
         self.assertIn("\\section{Projects}", tex)
         self.assertIn(r"\textbf{Languages}", tex)
 
-    def test_assemble_writes_tailor_lock(self) -> None:
-        self.write_slots(self.valid_slot_data())
-        A.assemble(self.company)
-        self.assertTrue(tailor_lock.is_fresh(self.out_dir))
-
     def test_missing_slot_file_raises_slotserror(self) -> None:
         with self.assertRaises(SlotsError):
-            A.assemble(self.company)
-
-    def test_refuses_to_clobber_existing_baseline(self) -> None:
-        # A captured baseline is a hard stop -- there is no redo/force path.
-        self.write_slots(self.valid_slot_data())
-        self.dataset_dir.mkdir(parents=True, exist_ok=True)
-        (self.dataset_dir / "resume.ai.tex").write_text("human", encoding="utf-8")
-        with self.assertRaises(A.AssembleError):
             A.assemble(self.company)
 
 

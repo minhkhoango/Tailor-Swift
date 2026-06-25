@@ -1,35 +1,35 @@
 #!/usr/bin/env python3
 # pyright: reportPrivateUsage=false, reportUnusedImport=false
-"""Tests for capture_baseline: the Stop-hook AI-baseline snapshot logic.
+"""Tests for capture: the slot-level dataset benchmark-pair snapshots.
 
-The module's OUTPUT / DATASET / JOBDESC are redirected to temp dirs so main()
-can run its real OUTPUT scan in isolation (it must not touch the repo's output/).
+The benchmark pair is now slot files, not ``.tex``: ``resume.ai.slots.json`` (the
+AI's first shipped slots, frozen) + ``resume.final.slots.json`` (the rolling
+human-edited slots). ``capture.DATASET`` / ``capture.JOBDESC`` are redirected to
+temp dirs so the snapshots never touch the repo's real ``dataset/``.
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
-import time
 import unittest
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import _helpers  # noqa: F401  (path setup)
-import tailor_lock
-import capture_baseline as C
+from tailor.core import capture as C
 
 
 class Capture(unittest.TestCase):
     def setUp(self) -> None:
         self.root = Path(tempfile.mkdtemp(prefix="__test_capture_"))
-        self.output = self.root / "output"
         self.dataset = self.root / "dataset"
         self.jobdesc = self.root / "jobDescription"
-        for d in (self.output, self.dataset, self.jobdesc):
+        for d in (self.dataset, self.jobdesc):
             d.mkdir(parents=True)
         self._patches = [
-            mock.patch.object(C, "OUTPUT", self.output),
             mock.patch.object(C, "DATASET", self.dataset),
             mock.patch.object(C, "JOBDESC", self.jobdesc),
         ]
@@ -41,44 +41,57 @@ class Capture(unittest.TestCase):
             p.stop()
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def _company(self, name: str, *, complete: bool, locked: bool) -> Path:
-        d = self.output / name
-        d.mkdir(parents=True)
-        (d / "resume.tex").write_text(
-            "x\n\\end{document}\n" if complete else "incomplete", encoding="utf-8")
-        if complete:
-            (d / f"{C.RESUME_JOBNAME}.pdf").write_bytes(b"%PDF-1.4 fake")
-        (self.jobdesc / f"{name}.txt").write_text("the JD", encoding="utf-8")
-        if locked:
-            tailor_lock.mark(d, name)
-        return d
+    def _slots(self) -> dict[str, Any]:
+        return {"company": "acme", "experiences": [], "projects": [], "skills": []}
 
-    def test_complete_locked_company_is_captured_and_unlocked(self) -> None:
-        d = self._company("acme", complete=True, locked=True)
-        C.main()
-        self.assertTrue((self.dataset / "acme" / "resume.ai.tex").exists())
-        self.assertTrue((self.dataset / "acme" / "job_description.txt").exists())
-        self.assertFalse(tailor_lock.is_fresh(d))  # lock cleared
+    # -- is_frozen --------------------------------------------------------- #
+    def test_not_frozen_when_no_baseline(self) -> None:
+        self.assertFalse(C.is_frozen("acme"))
 
-    def test_incomplete_fresh_lock_is_left_alone(self) -> None:
-        d = self._company("acme", complete=False, locked=True)
-        C.main()
-        self.assertFalse((self.dataset / "acme" / "resume.ai.tex").exists())
-        self.assertTrue(tailor_lock.is_fresh(d))  # lock kept for next turn
+    def test_frozen_after_baseline_written(self) -> None:
+        C.capture_ai_baseline("acme", self._slots())
+        self.assertTrue(C.is_frozen("acme"))
 
-    def test_incomplete_stale_lock_is_dropped(self) -> None:
-        d = self._company("acme", complete=False, locked=True)
-        old = time.time() - (tailor_lock.STALE_SECONDS + 60)
-        import os
-        os.utime(tailor_lock.lock_path(d), (old, old))
-        C.main()
-        self.assertFalse((self.dataset / "acme" / "resume.ai.tex").exists())
-        self.assertIsNone(tailor_lock.read(d))  # abandoned lock removed
+    # -- capture_ai_baseline ---------------------------------------------- #
+    def test_ai_baseline_writes_slots_and_copies_jd(self) -> None:
+        (self.jobdesc / "acme.txt").write_text("the JD", encoding="utf-8")
+        dest = C.capture_ai_baseline("acme", self._slots())
+        self.assertIsNotNone(dest)
+        baseline = self.dataset / "acme" / C.AI_BASELINE
+        self.assertTrue(baseline.exists())
+        self.assertEqual(json.loads(baseline.read_text(encoding="utf-8"))["company"], "acme")
+        self.assertEqual((self.dataset / "acme" / "job_description.txt")
+                         .read_text(encoding="utf-8"), "the JD")
 
-    def test_unlocked_company_is_ignored(self) -> None:
-        self._company("acme", complete=True, locked=False)
-        C.main()
-        self.assertFalse((self.dataset / "acme").exists())
+    def test_ai_baseline_skips_when_frozen(self) -> None:
+        first = C.capture_ai_baseline("acme", self._slots())
+        assert first is not None
+        first.write_text('{"company": "ORIGINAL"}', encoding="utf-8")
+        # A second capture must NOT clobber the frozen baseline.
+        second = C.capture_ai_baseline("acme", {"company": "CHANGED"})
+        self.assertIsNone(second)
+        self.assertEqual(json.loads(first.read_text(encoding="utf-8"))["company"], "ORIGINAL")
+
+    def test_ai_baseline_without_jd_still_writes(self) -> None:
+        dest = C.capture_ai_baseline("acme", self._slots())
+        self.assertIsNotNone(dest)
+        self.assertFalse((self.dataset / "acme" / "job_description.txt").exists())
+
+    # -- capture_human_final ---------------------------------------------- #
+    def test_human_final_snapshots_output_slot(self) -> None:
+        src = self.root / "resume.slots.json"
+        src.write_text('{"company": "edited"}', encoding="utf-8")
+        dest = C.capture_human_final("acme", src)
+        self.assertEqual(dest, self.dataset / "acme" / C.HUMAN_FINAL)
+        self.assertEqual(json.loads(dest.read_text(encoding="utf-8"))["company"], "edited")
+
+    def test_human_final_last_write_wins(self) -> None:
+        src = self.root / "resume.slots.json"
+        src.write_text('{"company": "v1"}', encoding="utf-8")
+        C.capture_human_final("acme", src)
+        src.write_text('{"company": "v2"}', encoding="utf-8")
+        dest = C.capture_human_final("acme", src)
+        self.assertEqual(json.loads(dest.read_text(encoding="utf-8"))["company"], "v2")
 
 
 if __name__ == "__main__":

@@ -22,12 +22,11 @@ sort keeps slot order for a same-date tie -- the model's only ordering job.
 Verbatim-by-id bullets are honesty-safe by construction. Errors (unknown key,
 out-of-range id, >5 skill rows, a project stack with >3 items, or a `text`
 reword padded materially longer than its source bullet) abort with a clear
-message and a nonzero exit. A company that already has a captured
-``dataset/<co>/resume.ai.tex`` baseline is refused (no redo path) -- delete that
-directory to regenerate.
+message and a nonzero exit. Skipping a company already frozen in ``dataset/`` is
+the orchestrator's job, not the assembler's -- this module just renders slots.
 
 Usage:
-    python3 assemble_resume.py <company>
+    python3 -m tailor.core.assemble_resume <company>
 """
 
 from __future__ import annotations
@@ -40,10 +39,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-import tailor_lock
-import tex_parse
-from tex_parse import Block, match_braces
-from paths import DATASET, MASTER, OUTPUT, REPO_ROOT
+from . import tex_parse
+from .tex_parse import Block, match_braces
+from .paths import MASTER, OUTPUT, REPO_ROOT, RESUME_TEX, SLOTS_NAME
 
 
 # --------------------------------------------------------------------------- #
@@ -84,7 +82,23 @@ class Slots:
 
 
 def _slots_path(company: str) -> Path:
-    return OUTPUT / company / "resume.slots.json"
+    return OUTPUT / company / SLOTS_NAME
+
+
+def load_slots_from(path: Path) -> Slots:
+    """Load + structurally validate a slot file at an arbitrary path.
+
+    The orchestrator writes the LLM's slots to a scratch dir and assembles there;
+    only the final accepted pass lands in ``output/<stem>/``. Both paths flow
+    through this one loader so the slot-file contract has a single home.
+    """
+    if not path.exists():
+        raise SlotsError(f"missing slot file: {path}")
+    try:
+        data: Any = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as e:
+        raise SlotsError(f"slot file is not valid JSON: {e}")
+    return parse_slots(data)
 
 
 def _bullet(raw: Any, where: str) -> BulletSpec:
@@ -218,6 +232,29 @@ def _closest_master_bullet(text_tokens: list[str], block: Block) -> tuple[float,
     return best_ratio, best_len
 
 
+@dataclass(frozen=True)
+class RewordCheck:
+    """Pure verdict on whether a ``text`` reword pads its closest master bullet.
+
+    The assembler raises on ``not ok``; the inspect harness tabulates every
+    field across all bullets without raising on the first violation.
+    """
+    ratio: float          # token-set jaccard vs the closest master bullet
+    word_count: int       # length of the reword
+    master_len: int       # length of that closest master bullet
+    extra_words: int      # word_count - master_len (can be negative)
+    ok: bool              # False only when it resembles a source AND over-pads it
+
+
+def check_reword(text: str, block: Block) -> RewordCheck:
+    """Measure a ``text`` reword against the block's master bullets (no raise)."""
+    toks = _reword_tokens(text)
+    ratio, master_len = _closest_master_bullet(toks, block)
+    extra = len(toks) - master_len
+    ok = not (ratio >= REWORD_MATCH_MIN and extra > MAX_REWORD_EXTRA_WORDS)
+    return RewordCheck(ratio, len(toks), master_len, extra, ok)
+
+
 def _bullet_tex(spec: BulletSpec, block: Block) -> str:
     """Render one bullet spec to a `\\resumeItem{...}` line body.
 
@@ -233,12 +270,11 @@ def _bullet_tex(spec: BulletSpec, block: Block) -> str:
         body = block.bullets[i - 1].strip()
     else:
         body = (spec.text or "").strip()
-        toks = _reword_tokens(body)
-        ratio, master_len = _closest_master_bullet(toks, block)
-        if ratio >= REWORD_MATCH_MIN and len(toks) - master_len > MAX_REWORD_EXTRA_WORDS:
+        chk = check_reword(body, block)
+        if not chk.ok:
             raise AssembleError(
                 f"{block.key}: reworded bullet pads its source by "
-                f"{len(toks) - master_len} words ({len(toks)} vs master {master_len}); "
+                f"{chk.extra_words} words ({chk.word_count} vs master {chk.master_len}); "
                 f"a reword may add at most {MAX_REWORD_EXTRA_WORDS}. Don't lengthen a "
                 f"bullet to fill the page -- use the verbatim id, trim the reword, or "
                 f"add a whole pool bullet/project instead.")
@@ -271,13 +307,18 @@ def _emph_inner(heading: str) -> str | None:
     return inner
 
 
-def _validate_stack(key: str, heading: str) -> None:
-    """A project's tech-stack \\emph{} line may list at most MAX_PROJECT_STACK items."""
+def stack_items(heading: str) -> list[str]:
+    """The comma-separated tech items in a heading's first \\emph{...} (pure)."""
     inner = _emph_inner(heading)
     if inner is None:
-        return
-    items = [p.strip() for p in inner.split(",") if p.strip()]
-    if len(items) > MAX_PROJECT_STACK:
+        return []
+    return [p.strip() for p in inner.split(",") if p.strip()]
+
+
+def _validate_stack(key: str, heading: str) -> None:
+    """A project's tech-stack \\emph{} line may list at most MAX_PROJECT_STACK items."""
+    items = stack_items(heading)
+    if items and len(items) > MAX_PROJECT_STACK:
         raise AssembleError(
             f"{key}: tech stack has {len(items)} items "
             f"({', '.join(items)}); keep the {MAX_PROJECT_STACK} most JD-relevant "
@@ -353,18 +394,13 @@ def _skills_section(rows: list[tuple[str, str]]) -> str:
     return "\n".join(body)
 
 
-def assemble(company: str) -> Path:
-    out_dir = OUTPUT / company
+def assemble_to(slots: Slots, out_dir: Path) -> Path:
+    """Render a validated ``Slots`` into ``out_dir/resume.tex`` and return the path.
 
-    slots = load_slots(company)  # raises SlotsError if missing / structurally wrong
-
-    baseline = DATASET / company / "resume.ai.tex"
-    if baseline.exists():
-        raise AssembleError(
-            f"AI baseline already exists ({baseline.relative_to(REPO_ROOT)}); "
-            f"refusing to clobber a captured benchmark pair. There is no redo path -- "
-            f"delete dataset/{company}/ if you really must regenerate.")
-
+    Pure of company / dataset concerns: the orchestrator points this at a scratch
+    dir for in-flight passes and at ``output/<stem>/`` only for the final accepted
+    one. Skip-the-frozen-company logic lives in the orchestrator, not here.
+    """
     master = MASTER.read_text(encoding="utf-8")
     blocks = tex_parse.parse_master(master)
 
@@ -410,11 +446,19 @@ def assemble(company: str) -> Path:
     resume_tex = "\n".join(parts)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "resume.tex").write_text(resume_tex, encoding="utf-8")
+    tex_path = out_dir / RESUME_TEX
+    tex_path.write_text(resume_tex, encoding="utf-8")
+    return tex_path
 
-    # AI-phase signal for the Stop-hook baseline capture + watch.py (see tailor_lock).
-    tailor_lock.mark(out_dir, company)
-    return out_dir / "resume.tex"
+
+def assemble_dir(work_dir: Path) -> Path:
+    """Read ``work_dir/resume.slots.json`` and assemble ``work_dir/resume.tex``."""
+    return assemble_to(load_slots_from(work_dir / SLOTS_NAME), work_dir)
+
+
+def assemble(company: str) -> Path:
+    """Assemble ``output/<company>/resume.tex`` from its slot file (CLI/back-compat)."""
+    return assemble_dir(OUTPUT / company)
 
 
 def main() -> int:

@@ -4,17 +4,17 @@ Run this audit on every draft **before** saving. Reject and fix your own draft i
 fires, then note what you caught in the run summary. A flagged-and-fixed trigger is never
 penalized; a buried stretch discovered later is the only real failure.
 
-> **What fires automatically vs. what's yours.** On save, the hook
-> (`scripts/tailor_hook.py`) runs only the one deterministic check an eyeball
-> reliably misses: **number-traceability** (rule 1 — every number in an output bullet
-> must trace to a *selected* master block).
+> **What fires automatically vs. what's yours.** Each pass, the tailor program's
+> deterministic chain runs only the one check an eyeball reliably misses:
+> **number-traceability** (rule 1 — every number in an output bullet must trace to a
+> *selected* master block), and feeds the result back to you as the next turn.
 > Everything else below is YOUR checklist — apply it before saving: the FORBIDDEN
 > tech list (rule 2), RAG (rule 5), scale claims (rule 6), buzzwords (rule 7),
 > "agentic" vs. the JD (rule 8), and the judgment rules — category relabeling
 > (rule 4), IOE/FPT attribution, the closed pool (rule 9). The lists on this page
 > are the single source of truth; nothing mirrors them in code anymore.
 
-## Hard rejects (resume and cover letter)
+## Hard rejects (resume and why-company blurb)
 
 1. **No invented metrics.** Every number / percentage / date / install / latency / accuracy
    traces 1:1 to `assets/master_resume.tex` or the project's repo. No new numbers.
@@ -38,7 +38,9 @@ penalized; a buried stretch discovered later is the only real failure.
 - **IOE (gateway):** the Mastra agent + SQL + business logic pre-existed Khoa. He owned the
   **gateway** that wired a phone number to the agent. Never claim the agent itself. GPT-4o-mini was
   his own pick (cheapest/fastest testing); Vocode + Twilio were the team's choice.
-- **FPT Telecom:** Khoa built the 86% Random Forest. No SQL (CSV-based), no DB, no Airflow/cron.
+- **FPT (quant finance):** Khoa built the 86% Random Forest trading model on Vietnamese
+  equities — quant-finance / stock-prediction work, **not telecom** (never call it "FPT
+  Telecom data work"). No SQL (CSV-based), no DB, no Airflow/cron, no backtesting.
 - **Education:** "GPA: 3.9/4.0, Honors Program" is real and confirmed — **keep it**. "1st in
   Division 2" on the ICPC line is real — keep it.
 
@@ -47,12 +49,11 @@ penalized; a buried stretch discovered later is the only real failure.
 When uncertain whether a fact survives a reword, **keep the original wording**. When uncertain
 whether a skill is defensible, **skip it and note the gap**. Less, not more.
 
-## Cover-letter-specific (only with `--cover`)
+## Why-company blurb (`tailor why`)
 
-The cover body is **fixed** (vetted voice-anchor prose); you only write the `<<WHY_COMPANY>>`
-paragraph — and you check that paragraph against this list yourself (nothing lints it; the body
-is exempt anyway). Every company fact in `<<WHY_COMPANY>>`
-must trace 1:1 to what the research sub-agent returned. No inflating "74,000+" to "75,000+", no
-merging two facts into a vaguer one. If research came up empty, write a
-`[TODO: Khoa — why this company]` placeholder rather than a generic "I admire your innovative
-mission" line. See `references/cover-letter.md`.
+The why-company blurb (pasted into an application's "why us" box) gets the same honesty bar.
+Every company fact in it must trace 1:1 to what the web search actually returned. No inflating
+"74,000+" to "75,000+", no merging two facts into a vaguer one. Prefer specificity **plus a
+verifiable number**. If research came up empty, write the exact placeholder
+`[TODO: Khoa — why this company]` rather than a generic "I admire your innovative mission" line.
+See `references/cover-letter.md` for the verifiable-number bar this is mined from.

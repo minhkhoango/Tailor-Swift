@@ -2,9 +2,9 @@
 """Compile tailored resumes (output/<company>/resume.tex -> Khoa_Ngo_resume.pdf).
 
 A standalone user convenience tool — run it by hand to (re)build resume PDFs
-outside a /tailor turn. It is deliberately self-contained: it imports nothing
-from the tailor skill, so the skill stays self-contained too. (The skill's own
-chain compiles in-process via its own copy of this logic.)
+outside a `python -m tailor` run. It is deliberately self-contained: it imports
+nothing from the tailor package. (The program's own chain compiles in-process via
+`tailor/core/pdf_compile.py`.)
 
 Usage:
   python3 build_resume.py            # build every output/*/resume.tex
@@ -95,7 +95,7 @@ def main() -> int:
     targets = companies_matching(prefix)
     if not targets:
         if prefix is None:
-            print(f"No {SOURCE} files found under {OUTPUT}/ — run /tailor first.")
+            print(f"No {SOURCE} files found under {OUTPUT}/ — run `python -m tailor` first.")
         else:
             avail = ", ".join(d.name for d in companies_matching(None)) or "(none yet)"
             print(f'No company under output/ starts with "{prefix}". Available: {avail}')

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # pyright: reportPrivateUsage=false
-"""Shared fixtures for the /tailor test suite.
+"""Shared fixtures for the tailor test suite.
 
-Puts the skill ``scripts/`` dir on the path (it owns every importable module now),
-loads the real master pool once, and offers a temp-company base case so the
-file-driven modules (slots, assembler, linter, pipeline) can be exercised against
-real ``output/<company>/`` + ``dataset/<company>/`` dirs that are torn down after.
+The deterministic core now lives in the top-level ``tailor`` package (``tailor.core.*``),
+not a Claude Code skill folder. Repo root is put on the path (the root ``conftest.py``
+does this too) so ``import tailor`` resolves; the real master pool is loaded once; and a
+temp-company base case lets the file-driven modules run against real ``output/<company>/``
++ ``dataset/<company>/`` dirs that are torn down after.
 """
 
 from __future__ import annotations
@@ -19,12 +20,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent          # tests/ -> repo root
-SCRIPTS = ROOT / ".claude" / "skills" / "tailor" / "scripts"
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-import tex_parse  # noqa: E402
-from paths import DATASET, MASTER as MASTER_PATH, OUTPUT  # noqa: E402
+from tailor.core import tex_parse  # noqa: E402
+from tailor.core.paths import DATASET, MASTER as MASTER_PATH, OUTPUT  # noqa: E402
 
 MASTER = MASTER_PATH.read_text(encoding="utf-8")
 BLOCKS = tex_parse.parse_master(MASTER)

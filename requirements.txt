@@ -10,3 +10,10 @@ pdfplumber>=0.11
 # watchdog powers watch.py: the live PDF-rebuild + dataset/*.final.tex watcher
 # for the human-edit phase.
 watchdog>=4.0
+
+# anthropic drives the self-contained tailor loop: messages.parse structured
+# output (Slots/Why), prompt caching, and server-side web_search for why-company.
+anthropic>=0.40
+
+# pydantic enforces the Slots/Why structured-output schemas (extra="forbid").
+pydantic>=2

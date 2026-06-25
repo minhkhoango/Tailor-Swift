@@ -8,8 +8,8 @@ from __future__ import annotations
 import unittest
 
 from _helpers import TailorTempCase
-import assemble_resume as A
-from assemble_resume import SlotsError
+from tailor.core import assemble_resume as A
+from tailor.core.assemble_resume import SlotsError
 
 
 class Parse(unittest.TestCase):

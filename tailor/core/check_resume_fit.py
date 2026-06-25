@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic 1-page resume fit checker for the /tailor skill.
+"""Deterministic 1-page resume fit checker for the tailor program.
 
 Measures two things on a compiled ``Khoa_Ngo_resume.pdf`` (paired with its
 ``resume.tex``) — *deterministically*, by reading the rendered word boxes out
@@ -17,9 +17,9 @@ a bullet, and it keeps JD keywords and locked facts intact. UNDERFULL is only
 actionable while there is still content to add: once all bullets + up to 5 skill
 rows are in and it is still < 0.95, that is acceptable.
 
-Run from the repo root (the script lives in .claude/skills/tailor/scripts/):
-    .venv/bin/python .claude/skills/tailor/scripts/check_resume_fit.py <company>
-    .venv/bin/python .claude/skills/tailor/scripts/check_resume_fit.py --all
+Run from the repo root (the module lives in tailor/core/):
+    .venv/bin/python -m tailor.core.check_resume_fit <company>
+    .venv/bin/python -m tailor.core.check_resume_fit --all
 
 Exit codes (mirrors build_resume.py):
     0  every analyzed resume is OK (1 page, 95-100% full, no <=4-word spillover)
@@ -38,15 +38,15 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-# Shared tex parsing lives in tex_parse (same dir; on sys.path when run as a script).
-from tex_parse import (  # noqa: E402
+# Shared tex parsing lives in tex_parse (the single home for LaTeX parsing).
+from .tex_parse import (  # noqa: E402
     extract_skill_rows,
     replace_href as _replace_href,
     resume_items as extract_resume_items,
 )
-from paths import OUTPUT
+from .paths import OUTPUT, RESUME_JOBNAME
 
-JOBNAME = "Khoa_Ngo_resume"
+JOBNAME = RESUME_JOBNAME
 
 # --- Page geometry (US Letter, points; 1in = 72pt) ---
 PAGE_W_PT = 612.0
@@ -404,15 +404,23 @@ def load_tex(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def analyze_company(company: str) -> FitReport:
-    out_dir = OUTPUT / company
-    pdf = out_dir / f"{JOBNAME}.pdf"
-    tex = out_dir / "resume.tex"
+def analyze_dir(work_dir: Path, label: str) -> FitReport:
+    """Measure the resume.pdf/resume.tex sitting in any directory.
+
+    The orchestrator compiles each in-flight pass in a scratch dir and calls this
+    directly (in-process, under the pdfplumber-equipped venv) -- no subprocess.
+    """
+    pdf = work_dir / f"{JOBNAME}.pdf"
+    tex = work_dir / "resume.tex"
     if not pdf.exists():
         raise FileNotFoundError(f"missing PDF: {pdf}")
     if not tex.exists():
         raise FileNotFoundError(f"missing tex: {tex}")
-    return analyze_from_pages(load_tex(tex), extract_pages(pdf), company)
+    return analyze_from_pages(load_tex(tex), extract_pages(pdf), label)
+
+
+def analyze_company(company: str) -> FitReport:
+    return analyze_dir(OUTPUT / company, company)
 
 
 # --------------------------------------------------------------------------- #
@@ -498,7 +506,7 @@ def main() -> int:
     ap.add_argument("--calibrate", metavar="COMPANY",
                     help="print suggested PRINTABLE_* constants from a known-good resume")
     ap.add_argument("--pages", metavar="PDF",
-                    help="print the page count of a PDF and exit (used by the cover-letter hook)")
+                    help="print the page count of a PDF and exit")
     ap.add_argument("--json", metavar="COMPANY", dest="json_company",
                     help="emit one company's FitReport as JSON (used by the /tailor pipeline)")
     args = ap.parse_args()

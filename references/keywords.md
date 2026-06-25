@@ -47,7 +47,23 @@ ClipChamp, YouTube Studio
 
 ### Data / Analytics
 Data Analysis, data science, Pandas, NumPy, Matplotlib, Seaborn, Jupyter, Excel
-- Source: FPT Telecom data work.
+- Source: FPT quant-finance work (ML on Vietnamese equities — see Finance / Quant).
+
+### Finance / Quant
+Financial Markets, Equities, Stock Prediction, Quantitative Finance,
+Trading Strategy, Algorithmic Trading, Market Research, Time Series Analysis,
+Feature Engineering, Macroeconomic Analysis
+- Source: FPT — a Random-Forest trading model on Vietnamese equities (quant
+  finance, not telecom). NO `Backtesting` (it wasn't backtested) and NO
+  `Financial Modeling` (that means DCF/valuation; this was ML/predictive modeling
+  on financial data).
+
+### Baseline tools (universal — fill leftover skill-row space only)
+Microsoft Office, Microsoft Word, Microsoft Excel, Microsoft PowerPoint,
+Microsoft Outlook, Microsoft 365, Google Workspace, Windows
+- Universal, no project source needed. Low priority: only add after every
+  JD-relevant tech is already in a row; never crowd out impressive tech.
+  (Excel + Windows 11 also appear above where a JD signals them specifically.)
 
 ### Audio / Real-time
 Audio Processing, Telephony, Streaming, Speech Recognition, Text-to-Speech

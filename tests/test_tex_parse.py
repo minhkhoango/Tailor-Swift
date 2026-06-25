@@ -7,7 +7,7 @@ from __future__ import annotations
 import unittest
 
 from _helpers import BLOCKS, MASTER
-import tex_parse as T
+from tailor.core import tex_parse as T
 
 
 class MatchBraces(unittest.TestCase):

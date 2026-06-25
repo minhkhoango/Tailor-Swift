@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""The skill's shared pdflatex compile core.
+"""The shared pdflatex compile core.
 
 One home for the multi-pass ``pdflatex`` run and the aux-file cleanup. Both the
-PostToolUse chain (``tailor_hook.py``) and the live watcher (``watch.py``)
-compile in-process through :func:`compile_tex` — neither shells out.
+deterministic chain (``chain.py``) and the live watcher (``watch.py``) compile
+in-process through :func:`compile_tex` — neither shells out.
 
-The root user-convenience scripts (``build_resume.py`` / ``build_cover_letter.py``
-at the repo root) are deliberately standalone and carry their OWN copy of this
-logic; they do not import this module, so the skill stays self-contained.
+The root user-convenience tool ``build_resume.py`` is deliberately standalone and
+carries its OWN copy of this logic; it does not import this module.
 
 Public surface:
     compile_tex(tex, jobname, passes) -> True on success (PDF built, aux cleaned)

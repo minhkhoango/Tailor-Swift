@@ -8,6 +8,11 @@ __pycache__/
 # live watcher singleton lock
 .watch.pid
 
+# in-flight tailor passes (only the final accepted pass lands in output/)
+.tailor_cache/
+# per-run JSONL logs
+logs/
+
 # LaTeX build artifacts
 *.aux
 *.log
@@ -45,3 +50,5 @@ dataset/
 .claude/skills/scrape-jobs/.debug/
 .claude/skills/scrape-jobs/last_run.json
 
+# Secrets
+.env

@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false, reportUnusedImport=false
 """Tests for the deterministic fit-check core (no PDF / pdfplumber needed).
 
-``import _helpers`` is kept for its path-setup side effect (see test_tailor_lock).
+``import _helpers`` is kept for its path-setup side effect.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from __future__ import annotations
 import unittest
 
 import _helpers  # noqa: F401  (path setup)
-import check_resume_fit as F
-from check_resume_fit import BulletReport, FitReport, Page, Word
+from tailor.core import check_resume_fit as F
+from tailor.core.check_resume_fit import BulletReport, FitReport, Page, Word
 
 
 def words(*specs: tuple[str, int]) -> list[Word]:
