@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # pyright: reportPrivateUsage=false
-"""Tests for the slot schema (now owned by assemble_resume): structural
+"""Tests for the slot schema (now owned by tailor.core.slots): structural
 validation of the slot file into typed values."""
 
 from __future__ import annotations
@@ -8,8 +8,8 @@ from __future__ import annotations
 import unittest
 
 from _helpers import TailorTempCase
-from tailor.core import assemble_resume as A
-from tailor.core.assemble_resume import SlotsError
+from tailor.core import slots as A
+from tailor.core.slots import SlotsError
 
 
 class Parse(unittest.TestCase):
@@ -73,17 +73,17 @@ class Parse(unittest.TestCase):
 class LoadFromDisk(TailorTempCase):
     def test_load_slots_round_trip(self) -> None:
         self.write_slots(self.valid_slot_data())
-        got = A.load_slots(self.company)
+        got = A.from_json(self.out_dir / "resume.slots.json")
         self.assertEqual([e.key for e in got.experiences], ["ioe", "fpt"])
 
     def test_missing_file_raises(self) -> None:
         with self.assertRaises(SlotsError):
-            A.load_slots(self.company)
+            A.from_json(self.out_dir / "resume.slots.json")
 
     def test_bad_json_raises(self) -> None:
         self.write("resume.slots.json", "{not json")
         with self.assertRaises(SlotsError):
-            A.load_slots(self.company)
+            A.from_json(self.out_dir / "resume.slots.json")
 
 
 if __name__ == "__main__":

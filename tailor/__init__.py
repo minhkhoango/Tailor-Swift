@@ -21,21 +21,22 @@ import shutil
 from pathlib import Path
 from typing import Callable, Protocol
 
-from .core.assemble_resume import SlotsData
 from .core.capture import capture_ai_baseline, is_frozen
 from .core.chain import Report, run_chain
 from .core.paths import JOBDESC, OUTPUT, RESUME_JOBNAME, SCRATCH, SLOTS_NAME
-from .llm import Slots, Why, slots_to_data
+from .core.slots import Slots, to_data
+from .llm import Slots as ModelSlots, Why, from_model
 from .log import RunLogger, new_logger
 
 MAX_PASSES = 2
 
 # A chain is anything with run_chain's shape; tests pass a fake returning Reports.
-Chain = Callable[[str, SlotsData, Path], Report]
+# It receives a canonical (core) Slots -- the orchestrator converts pydantic once.
+Chain = Callable[[str, Slots, Path], Report]
 
 
 class Session(Protocol):
-    def emit(self, user_text: str) -> tuple[Slots, dict[str, int]]: ...
+    def emit(self, user_text: str) -> tuple[ModelSlots, dict[str, int]]: ...
 
 
 class LLM(Protocol):
@@ -69,21 +70,23 @@ def tailor_one(stem: str, jd_text: str, llm: LLM, chain: Chain, log: RunLogger,
     session = llm.session()
 
     slots, usage = session.emit(jd_text)
-    report = chain(stem, slots_to_data(slots), scratch)
+    core = from_model(slots)
+    report = chain(stem, core, scratch)
     passes = 1
     _log_pass(log, stem, passes, usage, report)
 
     while not report.ok and passes < max_passes:
         slots, usage = session.emit(report.text)
-        report = chain(stem, slots_to_data(slots), scratch)
+        core = from_model(slots)
+        report = chain(stem, core, scratch)
         passes += 1
         _log_pass(log, stem, passes, usage, report)
 
     report.passes = passes
-    report.uncovered = list(slots.uncovered)
+    report.uncovered = list(core.uncovered)
 
     if report.shippable:
-        _ship(stem, slots, scratch, log)
+        _ship(stem, core, scratch, log)
         shutil.rmtree(scratch, ignore_errors=True)
     else:
         reason = ("honesty-unclean" if report.honesty_flags else report.verdict.lower())
@@ -106,7 +109,7 @@ def _ship(stem: str, slots: Slots, scratch: Path, log: RunLogger) -> None:
     if is_frozen(stem):
         log.event("skip", stem=stem, reason="frozen (dataset baseline kept)")
     else:
-        capture_ai_baseline(stem, slots_to_data(slots))
+        capture_ai_baseline(stem, to_data(slots))
 
 
 # --------------------------------------------------------------------------- #

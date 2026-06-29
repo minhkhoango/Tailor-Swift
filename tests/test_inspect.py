@@ -20,7 +20,6 @@ Needs pdflatex + pdfplumber; skips cleanly without them.
 
 from __future__ import annotations
 
-import json
 import re
 import shutil
 import tempfile
@@ -34,11 +33,10 @@ from _helpers import BLOCKS, has_pdflatex, has_pdfplumber
 from tailor.core import check_resume_fit
 from tailor.core.assemble_resume import (
     MAX_PROJECT_STACK,
-    Slots,
     check_reword,
-    load_slots_from,
     stack_items,
 )
+from tailor.core.slots import Slots, from_json
 from tailor.core.chain import honesty_flags, run_chain
 from tailor.core.paths import MASTER
 from tailor.digest import forbidden_terms
@@ -113,11 +111,10 @@ def _forbidden_report(work_dir: Path, terms: list[str]) -> list[str]:
 
 def inspect_one(label: str, slots_path: Path) -> tuple[str, str]:
     """Run the real chain on one slot file; return (verdict, human report block)."""
-    slots = load_slots_from(slots_path)
+    slots = from_json(slots_path)
     scratch = Path(tempfile.mkdtemp(prefix="__inspect_"))
     try:
-        slots_data = json.loads(slots_path.read_text(encoding="utf-8"))
-        report = run_chain(label, slots_data, scratch)
+        report = run_chain(label, slots, scratch)
 
         out: list[str] = [f"\n=== {label} ===",
                           f"  verdict: {report.verdict}  fill: {report.fill}  "

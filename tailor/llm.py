@@ -38,7 +38,7 @@ if TYPE_CHECKING:
         ToolUnionParam,
     )
 
-from .core.assemble_resume import BlockData, BulletData, SlotsData
+from .core.slots import BulletSpec, EntrySpec, Slots as CoreSlots
 from .digest import build_digest
 
 MODEL = "claude-sonnet-4-6"               # slot-loop model: cheap SELECT + light reword
@@ -100,28 +100,28 @@ class Why(BaseModel):
     why_company: str                   # the 2-3 sentence paragraph (or TODO placeholder)
 
 
-def slots_to_data(slots: Slots) -> SlotsData:
-    """Pydantic ``Slots`` -> the plain dict the deterministic core consumes.
+def from_model(slots: Slots) -> CoreSlots:
+    """Pydantic model-output ``Slots`` -> the canonical core ``Slots``.
 
-    Bullet objects serialize to exactly ``{"id": n}`` or ``{"text": "..."}`` -- the
-    closed-pool / verbatim contract the assembler validates. ``company`` and
-    ``uncovered`` ride along; the assembler ignores them.
+    The one adapter across the core/llm boundary: it lifts the SDK contract into
+    the plain dataclass the deterministic chain threads around. Bullets map to
+    exactly id-XOR-text (the closed-pool / verbatim contract); ``company`` and
+    ``uncovered`` ride on the dataclass so the orchestrator reads them off one
+    real object instead of re-parsing a dict. (Replaces the old ``slots_to_data``;
+    the on-disk dict is now ``slots.to_data`` of this result.)
     """
-    def bullet(x: Bullet) -> BulletData:
-        return {"id": x.id} if isinstance(x, IdBullet) else {"text": x.text}
+    def bullet(x: Bullet) -> BulletSpec:
+        return BulletSpec(id=x.id) if isinstance(x, IdBullet) else BulletSpec(text=x.text)
 
-    def block(b: SlotBlock) -> BlockData:
-        d: BlockData = {"key": b.key, "bullets": [bullet(x) for x in b.bullets]}
-        if b.emph:
-            d["emph"] = b.emph
-        return d
-    return {
-        "company": slots.company,
-        "experiences": [block(b) for b in slots.experiences],
-        "projects": [block(b) for b in slots.projects],
-        "skills": [[r.category, r.content] for r in slots.skills],
-        "uncovered": list(slots.uncovered),
-    }
+    def entry(b: SlotBlock) -> EntrySpec:
+        return EntrySpec(key=b.key, bullets=[bullet(x) for x in b.bullets], emph=b.emph)
+    return CoreSlots(
+        company=slots.company,
+        experiences=[entry(b) for b in slots.experiences],
+        projects=[entry(b) for b in slots.projects],
+        skills=[(r.category, r.content) for r in slots.skills],
+        uncovered=list(slots.uncovered),
+    )
 
 
 # --------------------------------------------------------------------------- #

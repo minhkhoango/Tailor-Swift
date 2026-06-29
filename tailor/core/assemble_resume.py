@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
-"""Assemble output/<company>/resume.tex from a slot file + the master pool.
+"""Assemble output/<company>/resume.tex from a validated ``Slots`` + the master pool.
 
-The LLM writes a small ``output/<company>/resume.slots.json`` (which projects /
-experiences, which bullets by id, reworded bullets, the skills rows). This
-script owns BOTH ends of that contract:
-
-  * the slot-file SCHEMA -- the typed loader (``load_slots``) that turns the raw
-    JSON into ``Slots`` (experiences/projects/skills), enforcing structure
-    (id-XOR-text per bullet, [category, content] skill rows), and
-  * the mechanical ASSEMBLY -- copy the preamble + heading + Education verbatim
-    from ``assets/master_resume.tex``, emit the chosen experiences and projects
-    (headings verbatim by ``@key``; bullets pulled byte-identical by id, or
-    emitted from the slot's ``text``), then rebuild Technical Skills from the
-    slot rows.
+This module owns ONLY the mechanical ASSEMBLY: copy the preamble + heading +
+Education verbatim from ``assets/master_resume.tex``, emit the chosen experiences
+and projects (headings verbatim by ``@key``; bullets pulled byte-identical by id,
+or emitted from the slot's ``text``), then rebuild Technical Skills from the slot
+rows. The slot SCHEMA / parsing / loading / serialization is the job of
+``tailor/core/slots.py``; this module imports the canonical :class:`Slots`
+(and :class:`SlotsError`) from there and renders it.
 
 Ordering is deterministic and owned here, not by the model: experiences are
 validated into master order (IOE before FPT); projects are sorted by their
@@ -32,166 +27,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NotRequired, TypedDict, cast
 
 from . import tex_parse
 from .tex_parse import Block, match_braces
 from .paths import MASTER, OUTPUT, REPO_ROOT, RESUME_TEX, SLOTS_NAME
-
-
-# --------------------------------------------------------------------------- #
-# Slot-file schema (the LLM's contract with the assembler)
-# --------------------------------------------------------------------------- #
-class SlotsError(Exception):
-    """Raised when the slot file is missing, unparseable, or structurally wrong."""
-
-
-# The wire shape of a slot file: what ``slots_to_data`` (llm.py) emits and what
-# the deterministic core threads around (chain / capture). It is the typed mirror
-# of the dataclass ``Slots`` below; ``parse_slots`` validates arbitrary decoded
-# JSON (typed ``object``) back into that dataclass.
-class BulletData(TypedDict, total=False):
-    """One bullet pick: exactly one of ``id`` (verbatim) XOR ``text`` (reword)."""
-    id: int
-    text: str
-
-
-class BlockData(TypedDict):
-    """One chosen experience/project: master ``key`` + bullet picks (+ optional emph)."""
-    key: str
-    bullets: list[BulletData]
-    emph: NotRequired[str]
-
-
-class SlotsData(TypedDict):
-    """The full slot deliverable as plain JSON-able data (``company``/``uncovered``
-    ride along; the assembler ignores them)."""
-    company: str
-    experiences: list[BlockData]
-    projects: list[BlockData]
-    skills: list[list[str]]
-    uncovered: list[str]
-
-
-@dataclass(frozen=True)
-class BulletSpec:
-    """One chosen bullet: verbatim by ``id`` XOR a reworded ``text``."""
-    id: int | None = None
-    text: str | None = None
-
-
-@dataclass(frozen=True)
-class EntrySpec:
-    """One chosen experience or project: its master ``key`` + bullet picks.
-
-    ``emph`` is the optional project tech-stack override (ignored for experiences).
-    """
-    key: str
-    bullets: list[BulletSpec]
-    emph: str | None = None
-
-
-@dataclass(frozen=True)
-class Slots:
-    experiences: list[EntrySpec]
-    projects: list[EntrySpec]
-    skills: list[tuple[str, str]]
-
-    @property
-    def selected_keys(self) -> list[str]:
-        """Master keys actually picked, experiences first then projects."""
-        return [e.key for e in self.experiences] + [p.key for p in self.projects]
-
-
-def _slots_path(company: str) -> Path:
-    return OUTPUT / company / SLOTS_NAME
-
-
-def load_slots_from(path: Path) -> Slots:
-    """Load + structurally validate a slot file at an arbitrary path.
-
-    The orchestrator writes the LLM's slots to a scratch dir and assembles there;
-    only the final accepted pass lands in ``output/<stem>/``. Both paths flow
-    through this one loader so the slot-file contract has a single home.
-    """
-    if not path.exists():
-        raise SlotsError(f"missing slot file: {path}")
-    try:
-        data: object = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as e:
-        raise SlotsError(f"slot file is not valid JSON: {e}")
-    return parse_slots(data)
-
-
-def _bullet(raw: object, where: str) -> BulletSpec:
-    if not isinstance(raw, dict):
-        raise SlotsError(f"{where}: each bullet must be an object, got {type(raw).__name__}")
-    d = cast("dict[str, object]", raw)
-    has_id = "id" in d
-    has_text = "text" in d
-    if has_id == has_text:  # neither, or both
-        raise SlotsError(f"{where}: each bullet needs exactly one of 'id' or 'text'")
-    if has_id:
-        try:
-            return BulletSpec(id=int(cast("str | int | float", d["id"])))
-        except (TypeError, ValueError):
-            raise SlotsError(f"{where}: bullet 'id' must be an integer, got {d['id']!r}")
-    return BulletSpec(text=str(d["text"]))
-
-
-def _entry_spec(raw: object, kind: str, idx: int) -> EntrySpec:
-    where = f"{kind}[{idx}]"
-    if not isinstance(raw, dict):
-        raise SlotsError(f"{where}: must be an object, got {type(raw).__name__}")
-    d = cast("dict[str, object]", raw)
-    key = d.get("key")
-    if not isinstance(key, str) or not key:
-        raise SlotsError(f"{where}: missing string 'key'")
-    bullets_raw = d.get("bullets", [])
-    if not isinstance(bullets_raw, list):
-        raise SlotsError(f"{where}: 'bullets' must be a list")
-    bullets = [_bullet(b, f"{where}.bullets[{j}]")
-               for j, b in enumerate(cast("list[object]", bullets_raw))]
-    emph_raw = d.get("emph")
-    emph = str(emph_raw) if emph_raw is not None else None
-    return EntrySpec(key=key, bullets=bullets, emph=emph)
-
-
-def _skill_rows(raw: object) -> list[tuple[str, str]]:
-    if not isinstance(raw, list):
-        raise SlotsError("'skills' must be a list of [category, content] rows")
-    rows: list[tuple[str, str]] = []
-    for i, row in enumerate(cast("list[object]", raw)):
-        if not isinstance(row, (list, tuple)) or len(cast("list[object]", row)) != 2:
-            raise SlotsError(f"skills[{i}] must be a [category, content] pair, got {row!r}")
-        cat, content = cast("list[object]", row)
-        rows.append((str(cat), str(content)))
-    return rows
-
-
-def parse_slots(raw: object) -> Slots:
-    """Validate a decoded slot object's STRUCTURE and return a typed ``Slots``."""
-    if not isinstance(raw, dict):
-        raise SlotsError(f"slot file must be a JSON object, got {type(raw).__name__}")
-    d = cast("dict[str, object]", raw)
-    exp_raw = d.get("experiences", [])
-    prj_raw = d.get("projects", [])
-    if not isinstance(exp_raw, list) or not isinstance(prj_raw, list):
-        raise SlotsError("'experiences' and 'projects' must be lists")
-    experiences = [_entry_spec(e, "experiences", i) for i, e in enumerate(cast("list[object]", exp_raw))]
-    projects = [_entry_spec(p, "projects", i) for i, p in enumerate(cast("list[object]", prj_raw))]
-    skills = _skill_rows(d.get("skills", []))
-    return Slots(experiences, projects, skills)
-
-
-def load_slots(company: str) -> Slots:
-    """Load + structurally validate ``output/<company>/resume.slots.json``."""
-    return load_slots_from(_slots_path(company))
+from .slots import BulletSpec, EntrySpec, Slots, SlotsError, from_json
 
 
 # --------------------------------------------------------------------------- #
@@ -414,7 +258,7 @@ def _skills_section(rows: list[tuple[str, str]]) -> str:
     return "\n".join(body)
 
 
-def assemble_to(slots: Slots, out_dir: Path) -> Path:
+def assemble(slots: Slots, out_dir: Path) -> Path:
     """Render a validated ``Slots`` into ``out_dir/resume.tex`` and return the path.
 
     Pure of company / dataset concerns: the orchestrator points this at a scratch
@@ -471,22 +315,13 @@ def assemble_to(slots: Slots, out_dir: Path) -> Path:
     return tex_path
 
 
-def assemble_dir(work_dir: Path) -> Path:
-    """Read ``work_dir/resume.slots.json`` and assemble ``work_dir/resume.tex``."""
-    return assemble_to(load_slots_from(work_dir / SLOTS_NAME), work_dir)
-
-
-def assemble(company: str) -> Path:
-    """Assemble ``output/<company>/resume.tex`` from its slot file (CLI/back-compat)."""
-    return assemble_dir(OUTPUT / company)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="Assemble resume.tex from a slot file.")
     ap.add_argument("company", help="company stem under output/")
     args = ap.parse_args()
+    out_dir = OUTPUT / args.company
     try:
-        path = assemble(args.company)
+        path = assemble(from_json(out_dir / SLOTS_NAME), out_dir)
     except (AssembleError, SlotsError) as e:
         print(f"assemble_resume: {e}", file=sys.stderr)
         return 1

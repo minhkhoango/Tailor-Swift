@@ -23,7 +23,7 @@ import pytest
 import tailor
 from tailor import run, tailor_one, why
 from tailor.core import capture
-from tailor.core.assemble_resume import SlotsData
+from tailor.core.slots import Slots as CoreSlots, pretty_slots_json, to_data
 from tailor.core.chain import Report
 from tailor.llm import Slots, Why
 from tailor.log import RunLogger
@@ -86,15 +86,16 @@ class FakeChain:
 
     def __init__(self, reports: list[Report], write_files: bool = True) -> None:
         self._q = list(reports)
-        self.calls: list[tuple[str, dict[str, object], Path]] = []
+        self.calls: list[tuple[str, CoreSlots, Path]] = []
         self._write = write_files
 
-    def __call__(self, stem: str, slots_data: SlotsData, work_dir: Path) -> Report:
-        self.calls.append((stem, dict(slots_data), Path(work_dir)))
+    def __call__(self, stem: str, slots: CoreSlots, work_dir: Path) -> Report:
+        self.calls.append((stem, slots, Path(work_dir)))
         wd = Path(work_dir)
         if self._write:
             wd.mkdir(parents=True, exist_ok=True)
-            (wd / "resume.slots.json").write_text(json.dumps(slots_data), encoding="utf-8")
+            (wd / "resume.slots.json").write_text(
+                pretty_slots_json(to_data(slots)), encoding="utf-8")
             (wd / "resume.tex").write_text("% tex", encoding="utf-8")
             (wd / "Khoa_Ngo_resume.pdf").write_bytes(b"%PDF fake")
         return self._q.pop(0)

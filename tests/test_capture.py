@@ -19,7 +19,7 @@ from unittest import mock
 
 import _helpers  # noqa: F401  (path setup)
 from tailor.core import capture as C
-from tailor.core.assemble_resume import SlotsData
+from tailor.core.slots import SlotsData
 
 
 class Capture(unittest.TestCase):

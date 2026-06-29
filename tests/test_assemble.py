@@ -8,7 +8,8 @@ import unittest
 
 from _helpers import BLOCKS, TailorTempCase
 from tailor.core import assemble_resume as A
-from tailor.core.assemble_resume import BulletSpec, EntrySpec, SlotsError
+from tailor.core import slots as S
+from tailor.core.slots import BulletSpec, EntrySpec, SlotsError
 
 
 class BulletRendering(unittest.TestCase):
@@ -88,7 +89,7 @@ class StackCap(unittest.TestCase):
 class FullAssemble(TailorTempCase):
     def test_assembles_valid_slot_file(self) -> None:
         self.write_slots(self.valid_slot_data())
-        out = A.assemble(self.company)
+        out = A.assemble(S.from_json(self.out_dir / "resume.slots.json"), self.out_dir)
         tex = out.read_text(encoding="utf-8")
         self.assertIn("\\documentclass", tex)
         self.assertIn("\\end{document}", tex)
@@ -98,7 +99,7 @@ class FullAssemble(TailorTempCase):
 
     def test_missing_slot_file_raises_slotserror(self) -> None:
         with self.assertRaises(SlotsError):
-            A.assemble(self.company)
+            S.from_json(self.out_dir / "resume.slots.json")
 
 
 class ProjectOrdering(unittest.TestCase):
@@ -123,7 +124,7 @@ class FullAssembleOrdering(TailorTempCase):
             {"key": "local_lens", "bullets": [{"id": 1}]},     # June 2026
         ]
         self.write_slots(data)
-        out = A.assemble(self.company)
+        out = A.assemble(S.from_json(self.out_dir / "resume.slots.json"), self.out_dir)
         tex = out.read_text(encoding="utf-8")
         self.assertLess(tex.index("Local Lens"), tex.index("PR Pilot"))
 

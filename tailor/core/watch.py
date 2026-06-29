@@ -40,7 +40,8 @@ import time
 from pathlib import Path
 
 from . import pdf_compile
-from .assemble_resume import AssembleError, SlotsError, assemble_dir
+from .assemble_resume import AssembleError, assemble
+from .slots import SlotsError, from_json
 from .capture import capture_human_final
 from .paths import (
     OUTPUT,
@@ -90,7 +91,7 @@ def _rebuild(stem: str, kind: str) -> None:
         if kind == "slots":
             print(f"[watch] {stem}: {SLOTS_NAME} saved -> assemble + compile...", flush=True)
             try:
-                assemble_dir(out_dir)
+                assemble(from_json(out_dir / SLOTS_NAME), out_dir)
             except (AssembleError, SlotsError) as e:
                 print(f"[watch] {stem}: assemble failed: {e}", flush=True)
                 return

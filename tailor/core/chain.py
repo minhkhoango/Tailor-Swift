@@ -25,15 +25,8 @@ import io
 from dataclasses import dataclass, field
 from pathlib import Path
 from . import pdf_compile, tex_parse
-from .capture import pretty_slots_json
-from .assemble_resume import (
-    AssembleError,
-    Slots,
-    SlotsData,
-    SlotsError,
-    assemble_to,
-    parse_slots,
-)
+from .assemble_resume import AssembleError, assemble
+from .slots import Slots, SlotsError, pretty_slots_json, to_data
 from .check_resume_fit import FitDict, analyze_dir
 from .paths import MASTER, RESUME_JOBNAME, SLOTS_NAME
 
@@ -146,21 +139,18 @@ def _fit_flags(fit: FitDict) -> list[str]:
     return [ln.strip() for ln in text.splitlines()[1:] if ln.strip()]
 
 
-def run_chain(stem: str, slots_data: SlotsData, work_dir: Path) -> Report:
-    """Assemble + compile + measure + honesty-check ``slots_data`` in ``work_dir``.
+def run_chain(stem: str, slots: Slots, work_dir: Path) -> Report:
+    """Assemble + compile + measure + honesty-check ``slots`` in ``work_dir``.
 
-    Writes the slot file, then runs the deterministic chain. A slot/assemble error
-    or a compile failure short-circuits to a ``verdict="ERROR"`` report carrying
-    the message (so the model can react on the next pass). The shipped artifact is
-    the final accepted ``resume.slots.json`` + PDF in ``work_dir``.
+    Takes a canonical :class:`Slots` (already validated by the slots module -- no
+    re-parse here). Writes the slot file, then runs the deterministic chain. An
+    assemble error or a compile failure short-circuits to a ``verdict="ERROR"``
+    report carrying the message (so the model can react on the next pass). The
+    shipped artifact is the final accepted ``resume.slots.json`` + PDF in
+    ``work_dir``.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
-    (work_dir / SLOTS_NAME).write_text(pretty_slots_json(slots_data), encoding="utf-8")
-
-    try:
-        slots = parse_slots(slots_data)
-    except SlotsError as e:
-        return Report(stem, "ERROR", None, [], False, text=f"slot file invalid: {e}")
+    (work_dir / SLOTS_NAME).write_text(pretty_slots_json(to_data(slots)), encoding="utf-8")
 
     struct_warn = len(slots.projects) != EXPECTED_PROJECTS
     s_line = (f"structure: WARN {len(slots.projects)} projects "
@@ -168,7 +158,7 @@ def run_chain(stem: str, slots_data: SlotsData, work_dir: Path) -> Report:
               else f"structure: {len(slots.projects)} projects")
 
     try:
-        assemble_to(slots, work_dir)
+        assemble(slots, work_dir)
     except (AssembleError, SlotsError) as e:
         return Report(stem, "ERROR", None, [], struct_warn,
                       text=f"assemble failed: {e}\n{s_line}")

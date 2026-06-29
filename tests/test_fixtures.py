@@ -39,10 +39,11 @@ from typing import Any
 import _helpers  # noqa: F401  (puts the repo root on sys.path)
 from _helpers import has_pdflatex, has_pdfplumber
 
-from tailor.core import assemble_resume, check_resume_fit, pdf_compile
-from tailor.core.assemble_resume import AssembleError, SlotsError
+from tailor.core import check_resume_fit, pdf_compile
+from tailor.core.assemble_resume import AssembleError, assemble
+from tailor.core.slots import SlotsError, from_json
 from tailor.core.chain import EXPECTED_PROJECTS, honesty_flags
-from tailor.core.paths import DATASET, OUTPUT, RESUME_JOBNAME
+from tailor.core.paths import DATASET, OUTPUT, RESUME_JOBNAME, SLOTS_NAME
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 FIT_FIELDS = ("verdict", "fullness_range", "spillover_flags", "page_count")
@@ -98,16 +99,17 @@ class FixtureSubjects(unittest.TestCase):
                     self._unstage(company)
 
     def _check_text(self, company: str, sdir: Path, labels: dict[str, Any]) -> None:
+        out_dir = OUTPUT / company
         # assemble_error subjects: the assembler must reject; nothing else applies.
         if "assemble_error" in labels:
             with self.assertRaises((AssembleError, SlotsError)) as ctx:
-                assemble_resume.assemble(company)
+                assemble(from_json(out_dir / SLOTS_NAME), out_dir)
             self.assertIn(labels["assemble_error"], str(ctx.exception))
             return
 
         # Everything else needs a successfully assembled resume.tex first.
-        assemble_resume.assemble(company)
-        slots = assemble_resume.load_slots(company)
+        slots = from_json(out_dir / SLOTS_NAME)
+        assemble(slots, out_dir)
 
         if "golden_tex" in labels:
             produced = (OUTPUT / company / "resume.tex").read_text(encoding="utf-8")
@@ -147,7 +149,7 @@ class FixtureSubjects(unittest.TestCase):
 
     def _check_fit(self, company: str, labels: dict[str, Any]) -> None:
         work = OUTPUT / company
-        assemble_resume.assemble(company)
+        assemble(from_json(work / SLOTS_NAME), work)
         ok = pdf_compile.compile_tex(work / "resume.tex", RESUME_JOBNAME, 2)
         self.assertTrue(ok, f"{company}: resume.tex failed to compile")
         fit = check_resume_fit.report_to_dict(check_resume_fit.analyze_dir(work, company))
