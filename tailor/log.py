@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import threading
 from pathlib import Path
 
 from .core.paths import LOGS
@@ -38,25 +39,36 @@ _ECHO: dict[str, str] = {
     "honesty":   "  honesty pass {pass}: {flags}",
     "why_write": "  why {stem} -> {path}{todo_tag}",
     "abort":     "✗ ABORT {stem}: {reason}",
+    "error":     "✗ ERROR {stem}: {error}",
     "jd_done":   "✓ {stem}: {verdict} honesty={honesty} ({passes} pass) uncovered={uncovered}",
     "run_done":  "tailor done: {jd_count} JD(s), {failures} failure(s)",
 }
 
 
 class RunLogger:
-    """Append-only JSONL logger; every :meth:`event` is one line + one echo."""
+    """Append-only JSONL logger; every :meth:`event` is one line + one echo.
+
+    Thread-safe: the batch fans JDs out across a thread pool, so up to 15 threads
+    call :meth:`event` at once. A single lock makes each event atomic -- its JSONL
+    line and its console echo emit as one unit, so neither the on-disk stream nor
+    the terminal ever interleaves two events' bytes.
+    """
 
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self._fh = path.open("a", encoding="utf-8")
+        self._lock = threading.Lock()
 
     def event(self, event: str, **fields: object) -> None:
         record = {"ts": datetime.datetime.now().isoformat(timespec="seconds"),
                   "event": event, **fields}
-        self._fh.write(json.dumps(record, default=str) + "\n")
-        self._fh.flush()
-        print(self._echo(event, fields))
+        line = json.dumps(record, default=str) + "\n"
+        echo = self._echo(event, fields)
+        with self._lock:
+            self._fh.write(line)
+            self._fh.flush()
+            print(echo)
 
     def _echo(self, event: str, fields: dict[str, object]) -> str:
         tmpl = _ECHO.get(event)

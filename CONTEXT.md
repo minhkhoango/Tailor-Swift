@@ -99,6 +99,16 @@ ignore-marked footer with the company + job-post links. It then runs the normal
 batch over `jobDescription/*.txt` (skipping already-done unless `force`). Network
 + login only; same filters → same files.
 
+The batch is **concurrent**: each JD is an independent, I/O-bound chain (model HTTP +
+the pdflatex subprocess, both releasing the GIL), so `run()` fans them across a thread
+pool — up to **15 at once** (`MAX_WORKERS`), the same cap on `tailor why`'s per-company
+fan-out. Nothing is shared between JDs: each gets its own model session, scratch dir, and
+`output/<stem>/` + `dataset/<stem>/`. The one cross-thread resource, the run logger, holds
+a lock so each event's JSONL line and console echo stay whole. A single JD's blow-up is
+caught, logged as an `error` event, and turned into a non-shippable `ERROR` report — the
+other in-flight JDs keep draining (decision recorded in `docs/adr/0002`). Reported results
+stay in input order regardless of finish order.
+
 Per JD, the program holds one stateful model conversation (the cached prefix — system prompt
 + digest, the digest carrying the keyword ledger + ALLOWED skill palette from the
 master — stays prompt-cached across JDs and turns):
