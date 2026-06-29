@@ -1,0 +1,12 @@
+{
+  "_note": "Real shipped slots from dataset/AXQ_Quant_Research/ (snapshotted into the tracked fixtures because dataset/ is gitignored). Labels are chain-measured. Drives both the fit subject test and the e2e.",
+  "verdict": "SPILLOVER",
+  "project_count": 3,
+  "structure_warn": false,
+  "honesty_flags": [],
+  "fullness_range": [
+    0.96,
+    1.0
+  ],
+  "page_count": 1
+}

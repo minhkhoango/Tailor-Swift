@@ -1,0 +1,12 @@
+{
+  "_note": "Real shipped slots from dataset/Susquehanna_Quant_Dev/ (snapshotted into the tracked fixtures because dataset/ is gitignored). Labels are chain-measured. Drives both the fit subject test and the e2e.",
+  "verdict": "UNDERFULL",
+  "project_count": 3,
+  "structure_warn": false,
+  "honesty_flags": [],
+  "fullness_range": [
+    0.88,
+    0.94
+  ],
+  "page_count": 1
+}

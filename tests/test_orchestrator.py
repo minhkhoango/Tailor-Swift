@@ -25,7 +25,7 @@ from tailor import run, tailor_one, why
 from tailor.core import capture
 from tailor.core.slots import Slots as CoreSlots, pretty_slots_json, to_data
 from tailor.core.chain import Report
-from tailor.llm import Slots, Why
+from tailor.llm import EmitResult, Slots, Why
 from tailor.log import RunLogger
 
 
@@ -48,15 +48,24 @@ def make_report(stem: str = "acme", verdict: str = "OK",
 
 
 class FakeSession:
-    """A single JD conversation: pops the next canned Slots per emit()."""
+    """A single JD conversation: pops the next canned Slots per emit().
+
+    Returns a full :class:`EmitResult` (slots + verbatim I/O) like the real session,
+    so the orchestrator's prompt/response logging is exercised by the fast suite too.
+    """
 
     def __init__(self, slots_list: list[Slots]) -> None:
         self._q = list(slots_list)
         self.emits: list[str] = []
+        self._first = True
 
-    def emit(self, user_text: str) -> tuple[Slots, dict[str, int]]:
+    def emit(self, user_text: str) -> EmitResult:
         self.emits.append(user_text)
-        return self._q.pop(0), dict(_USAGE)
+        slots = self._q.pop(0)
+        system = "FAKE-SYSTEM-PREFIX" if self._first else None
+        self._first = False
+        return EmitResult(slots, dict(_USAGE), user_text,
+                          slots.model_dump_json(), system)
 
 
 class FakeLLM:

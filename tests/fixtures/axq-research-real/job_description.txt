@@ -1,0 +1,16 @@
+Requirements
+Enrolled in a top-tier university (undergraduate or graduate) with a strong quantitative background (e.g., engineering, mathematics, physics, financial engineering)
+Solid foundation in mathematical statistics; familiar with statistical modeling, time-series analysis, and common machine-learning techniques
+Proficient in Python and skilled at data processing and analysis
+Passionate about quantitative finance, curious, innovative, and able to learn quickly
+Able to work well under pressure; strong communicator and team player
+Responsibilities
+Work under the guidance of experienced quantitative portfolio managers and researchers to develop and refine quantitative trading strategies
+Apply tools from probability, statistics, and machine learning to explore market patterns and edge
+Support cutting-edge research projects and alpha-generation initiatives
+Collect, clean, and analyze data; help maintain research infrastructure
+Learn and apply our proven methodologies on a professional research platform
+Desired Qualifications
+Prior experience developing quantitative trading strategies
+Publications in leading academic journals or conference proceedings
+Awards in national or international Olympiads (mathematics, physics, computer science)

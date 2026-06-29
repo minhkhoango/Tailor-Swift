@@ -1,0 +1,12 @@
+{
+  "_note": "Real shipped slots from dataset/Walleye_Quant_Dev/ (snapshotted into the tracked fixtures because dataset/ is gitignored). Labels are chain-measured. Drives both the fit subject test and the e2e.",
+  "verdict": "WRAP",
+  "project_count": 3,
+  "structure_warn": false,
+  "honesty_flags": [],
+  "fullness_range": [
+    0.92,
+    0.98
+  ],
+  "page_count": 1
+}

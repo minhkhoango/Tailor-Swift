@@ -25,6 +25,7 @@ per-block master notes.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict
@@ -38,7 +39,14 @@ if TYPE_CHECKING:
         ToolUnionParam,
     )
 
-from .core.slots import BulletSpec, EntrySpec, Slots as CoreSlots
+from .core.slots import (
+    BlockData,
+    BulletData,
+    BulletSpec,
+    EntrySpec,
+    Slots as CoreSlots,
+    SlotsData,
+)
 from .digest import build_digest
 
 MODEL = "claude-sonnet-4-6"               # slot-loop model: cheap SELECT + light reword
@@ -98,6 +106,51 @@ class Why(BaseModel):
     impressive_numbers: list[str]      # each must carry a verifiable number
     notable_specifics: list[str]
     why_company: str                   # the 2-3 sentence paragraph (or TODO placeholder)
+
+
+@dataclass
+class EmitResult:
+    """One :meth:`SlotSession.emit` turn, surfaced so the run log carries the LLM
+    I/O verbatim.
+
+    ``slots`` is the parsed (pydantic) deliverable; ``prompt_sent`` and
+    ``response_received`` are the exact user-turn text and the model's slots-as-JSON
+    for that pass. ``system`` is the cached prefix (system prompt + digest) --
+    attached on the FIRST turn only, since it is byte-stable for the rest of the
+    session, so the log records it once per JD instead of on every pass.
+    """
+    slots: Slots
+    usage: dict[str, int]
+    prompt_sent: str
+    response_received: str
+    system: str | None = None
+
+
+def slots_from_data(data: SlotsData) -> Slots:
+    """Plain on-disk slot dict -> a validated pydantic ``Slots`` (the model schema).
+
+    The mirror image of the model emitting slots: it rebuilds the *pydantic* shape
+    :meth:`SlotSession.emit` returns, so the replay e2e can feed a recorded
+    ``resume.slots.json`` back through the real orchestrator (which then runs it
+    through :func:`from_model` like any live turn) exactly as if the model had just
+    emitted it.
+    """
+    def bullet(b: BulletData) -> Bullet:
+        if "id" in b:
+            return IdBullet(id=b["id"])
+        return TextBullet(text=b.get("text", ""))
+
+    def block(b: BlockData) -> SlotBlock:
+        return SlotBlock(key=b["key"], bullets=[bullet(x) for x in b["bullets"]],
+                         emph=b.get("emph"))
+
+    return Slots(
+        company=data.get("company", ""),
+        experiences=[block(b) for b in data["experiences"]],
+        projects=[block(b) for b in data["projects"]],
+        skills=[SkillRow(category=cat, content=val) for cat, val in data["skills"]],
+        uncovered=list(data.get("uncovered", [])),
+    )
 
 
 def from_model(slots: Slots) -> CoreSlots:
@@ -289,9 +342,11 @@ class SlotSession:
         self._client = client
         self._system = system
         self._messages: list[dict[str, object]] = []
+        self._first = True
 
-    def emit(self, user_text: str) -> tuple[Slots, dict[str, int]]:
-        """Append a user turn (the JD, or a report), return the model's revised Slots."""
+    def emit(self, user_text: str) -> EmitResult:
+        """Append a user turn (the JD, or a report), return the model's revised Slots
+        plus the verbatim I/O for the run log (see :class:`EmitResult`)."""
         self._messages.append({"role": "user", "content": user_text})
         # `low` effort keeps the thinking budget small for this SELECT + light-reword
         # task; `messages.parse` merges it with the enforced Slots format. We pass
@@ -310,7 +365,12 @@ class SlotSession:
         out = resp.parsed_output
         if out is None:
             raise RuntimeError("model returned no parsed Slots")
-        return out, _usage(resp.usage)
+        system_text: str | None = None
+        if self._first:
+            system_text = "\n\n".join(str(b.get("text", "")) for b in self._system)
+            self._first = False
+        return EmitResult(out, _usage(resp.usage), user_text,
+                          out.model_dump_json(indent=2), system_text)
 
 
 class LLMClient:

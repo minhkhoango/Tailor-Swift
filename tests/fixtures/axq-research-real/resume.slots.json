@@ -1,0 +1,7 @@
+{
+  "company": "quant",
+  "experiences": [{"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]}, {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}],
+  "projects": [{"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}, {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 5}], "emph": "TypeScript, PaddleOCR, React"}, {"key": "pr_pilot", "bullets": [{"id": 1}, {"id": 2}]}],
+  "skills": [["Languages", "Python, SQL, C++, JavaScript, TypeScript, Bash / Shell Scripting"], ["Finance / Quant", "Quantitative Finance, Trading Strategy, Algorithmic Trading, Stock Prediction, Equities, Time Series Analysis"], ["AI / ML", "Machine Learning, Scikit-learn, Deep Learning, Neural Networks, Feature Engineering, NLP, LLM, PyTorch"], ["Data / Analytics", "Data Analysis, Data Science, Pandas, NumPy, Matplotlib, Seaborn, Jupyter, Excel"], ["Software Engineering", "REST APIs, Software Testing, Git / Git workflows, Docker, CI/CD, Linux"]],
+  "uncovered": ["Publications in leading academic journals or conference proceedings", "Awards in national/international Olympiads (math, physics, CS)"]
+}
