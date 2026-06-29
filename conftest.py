@@ -51,6 +51,21 @@ def pytest_configure(config: pytest.Config) -> None:
         "live: real-Anthropic smoke; needs ANTHROPIC_API_KEY + pdflatex (hand-run, self-skips)")
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Deselect the metered ``@pytest.mark.live`` smoke unless the user explicitly
+    opts in with ``-m live``. This composes with any other ``-m`` filter (e.g. the
+    documented ``-m "not inspect"`` fast run) -- unlike ``addopts = -m "not live"``,
+    which pytest's single-valued ``-m`` would clobber. ``-m live`` runs them;
+    ``-m "not live"`` is handled by pytest's own deselection."""
+    markexpr = cast(str, getattr(config.option, "markexpr", "") or "")
+    if "live" in markexpr:
+        return
+    skip_live = pytest.mark.skip(reason="live API test; run with -m live")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip_live)
+
+
 @pytest.fixture(autouse=True)
 def _no_metered_api(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scrub the key and trip-wire the real client for every collected test -- except
