@@ -39,6 +39,13 @@ MASTER = ASSETS / "master_resume.tex"   # pool + \section{Technical Skills} + % 
 
 VENV_PY = REPO_ROOT / ".venv" / "bin" / "python"
 
+# Scrape feeder (deterministic, part of tailor -- NOT an agent skill): the search
+# config is committed; the browser login + run manifest are gitignored runtime state.
+SCRAPE_CONFIG = REPO_ROOT / "scrape.config.json"
+SCRAPE_STATE = REPO_ROOT / ".scrape"                    # runtime state (gitignored)
+SCRAPE_PROFILE = SCRAPE_STATE / "profile"               # persistent simplify login
+SCRAPE_LAST_RUN = SCRAPE_STATE / "last_run.json"        # last run manifest
+
 # The shipped slot/pdf names a tailored company directory carries.
 SLOTS_NAME = "resume.slots.json"
 RESUME_TEX = "resume.tex"
