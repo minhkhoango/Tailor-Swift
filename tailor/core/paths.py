@@ -19,11 +19,14 @@ Layout (this file lives at ``<repo>/tailor/core/paths.py``)::
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 CORE = Path(__file__).resolve().parent          # .../tailor/core
 PACKAGE = CORE.parent                            # .../tailor
 REPO_ROOT = PACKAGE.parent                       # repo root
+
+ENV_FILE = REPO_ROOT / ".env"           # local secrets (gitignored): ANTHROPIC_API_KEY=...
 
 OUTPUT = REPO_ROOT / "output"
 DATASET = REPO_ROOT / "dataset"
@@ -74,3 +77,52 @@ def classify_output(file_path: str | Path) -> tuple[str, str] | None:
     except OSError:
         return None
     return (parent.name, kind)
+
+
+def load_env(env_file: Path = ENV_FILE, *, override: bool = False) -> dict[str, str]:
+    """Load a ``.env`` file into ``os.environ`` and return the names+values applied.
+
+    A deliberately small, zero-dependency dotenv reader (the project stays
+    self-contained -- no ``python-dotenv``). It parses ``KEY=value`` one per
+    line; this is the one place the program bridges the gitignored ``.env`` to
+    the process environment the Anthropic SDK reads.
+
+    Parsing rules, matching the common dotenv dialect:
+
+      * blank lines and ``#`` comment lines are skipped;
+      * an optional leading ``export `` on a line is ignored;
+      * the key is everything before the first ``=`` (trimmed); a line with no
+        ``=`` or an empty key is skipped rather than raising -- a malformed
+        ``.env`` never crashes startup;
+      * the value is everything after the first ``=`` (trimmed), with one layer
+        of surrounding matching single/double quotes stripped (so spaces or
+        ``#`` inside a quoted value survive).
+
+    Precedence follows dotenv convention: a variable already present in
+    ``os.environ`` is **not** overwritten unless ``override`` is True, so a key
+    exported in the shell always wins over the file. A missing file is a no-op
+    (returns ``{}``) -- ``.env`` is optional, not required.
+
+    Returns the ``{name: value}`` map actually written to ``os.environ`` so a
+    caller can log which keys were picked up (log the NAMES, never the values).
+    """
+    if not env_file.is_file():
+        return {}
+    applied: dict[str, str] = {}
+    for raw in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        key, sep, value = line.partition("=")
+        key = key.strip()
+        if not sep or not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if override or key not in os.environ:
+            os.environ[key] = value
+            applied[key] = value
+    return applied

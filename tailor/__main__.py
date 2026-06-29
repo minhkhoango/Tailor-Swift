@@ -21,6 +21,7 @@ from __future__ import annotations
 import sys
 
 from . import discover_jds, run, why
+from .llm import MissingAPIKey
 
 
 def main(argv: list[str]) -> int:
@@ -30,46 +31,53 @@ def main(argv: list[str]) -> int:
     elif "--force" in argv:                    # flag form for the batch verb
         force, argv = True, [a for a in argv if a != "--force"]
 
-    if argv and argv[0] == "scrape":
-        if argv[1:]:
-            print(f"unrecognized arguments: {' '.join(argv[1:])}", file=sys.stderr)
-            print("usage: tailor [force] scrape", file=sys.stderr)
+    # Argv parsing (and its usage errors) runs before any model call; only the
+    # action branches construct the LLM client, so a missing key surfaces exactly
+    # once here as a clean, no-traceback message instead of a raw stack dump.
+    try:
+        if argv and argv[0] == "scrape":
+            if argv[1:]:
+                print(f"unrecognized arguments: {' '.join(argv[1:])}", file=sys.stderr)
+                print("usage: tailor [force] scrape", file=sys.stderr)
+                return 2
+            from .core.scrape import load_config, run_scrape
+            # config `force:true` must reach BOTH halves: scrape overwrites the JD,
+            # and tailor must then re-run it (else the fresh JD is skipped as done).
+            effective_force = force or bool(load_config().get("force", False))
+            n = run_scrape(force_overwrite=effective_force)
+            print(f"scraped {n} new JD file(s); now tailoring ...")
+            jds = discover_jds()
+            if not jds:
+                print("no jobDescription/*.txt found after scrape", file=sys.stderr)
+                return 1
+            reports = run(jds, effective_force)
+            return 1 if sum(1 for r in reports if not r.shippable) else 0
+
+        if argv and argv[0] == "why":
+            globs = argv[1:]
+            if not globs:
+                print("usage: tailor [force] why <glob> [<glob>...]", file=sys.stderr)
+                return 2
+            written = why(globs, force)
+            print(f"wrote {len(written)} why_company.md file(s)")
+            return 0
+
+        if argv:
+            print(f"unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
+            print("usage: tailor | tailor --force | tailor [force] scrape | "
+                  "tailor [force] why <glob>...", file=sys.stderr)
             return 2
-        from .core.scrape import load_config, run_scrape
-        # config `force:true` must reach BOTH halves: scrape overwrites the JD,
-        # and tailor must then re-run it (else the fresh JD is skipped as done).
-        effective_force = force or bool(load_config().get("force", False))
-        n = run_scrape(force_overwrite=effective_force)
-        print(f"scraped {n} new JD file(s); now tailoring ...")
+
         jds = discover_jds()
         if not jds:
-            print("no jobDescription/*.txt found after scrape", file=sys.stderr)
+            print("no jobDescription/*.txt found", file=sys.stderr)
             return 1
-        reports = run(jds, effective_force)
-        return 1 if sum(1 for r in reports if not r.shippable) else 0
-
-    if argv and argv[0] == "why":
-        globs = argv[1:]
-        if not globs:
-            print("usage: tailor [force] why <glob> [<glob>...]", file=sys.stderr)
-            return 2
-        written = why(globs, force)
-        print(f"wrote {len(written)} why_company.md file(s)")
-        return 0
-
-    if argv:
-        print(f"unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
-        print("usage: tailor | tailor --force | tailor [force] scrape | "
-              "tailor [force] why <glob>...", file=sys.stderr)
+        reports = run(jds, force)
+        failures = sum(1 for r in reports if not r.shippable)
+        return 1 if failures else 0
+    except MissingAPIKey as exc:
+        print(f"\nerror: {exc}", file=sys.stderr)
         return 2
-
-    jds = discover_jds()
-    if not jds:
-        print("no jobDescription/*.txt found", file=sys.stderr)
-        return 1
-    reports = run(jds, force)
-    failures = sum(1 for r in reports if not r.shippable)
-    return 1 if failures else 0
 
 
 if __name__ == "__main__":

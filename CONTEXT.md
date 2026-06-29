@@ -182,7 +182,11 @@ see Tests.)
   the `compact_slots_json`/`pretty_slots_json` renderers. Nothing else parses or serializes a
   slot. The canonical form is the **dataclass**; the on-disk dict is just its serialized shape.
 - **`paths.py` is the single home for repo layout.** Relocate the package and only that file
-  changes. No other module re-derives the root.
+  changes. No other module re-derives the root. It also owns `load_env()` — the small
+  zero-dependency `.env` reader (`KEY=value`, `export`/quotes/comments tolerated, malformed
+  lines skipped) — because `.env` lives *at* that root. `load_env()` is called once, inside
+  `LLMClient.__init__` (never at import time, so the hermetic suite that injects a fake llm is
+  untouched); a shell-exported var always wins over the file. No `python-dotenv` dependency.
 - **`tex_parse.py` is the single home for LaTeX parsing** (one brace matcher, one comment
   stripper, one master-block parser). Don't reimplement parsing elsewhere — `digest.py` and
   the assembler both go through it.
@@ -190,7 +194,10 @@ see Tests.)
   wire schemas (what `messages.parse` enforces), the `SYSTEM_PROMPT` brain, the cached prefix,
   and the one web-search `why` call. The pydantic `Slots` is the wire form only: `from_model`
   (in `llm.py`) adapts it into the canonical `core/slots.py` dataclass right after parsing, so
-  the dependency points **core ← llm** and `core/` stays pydantic-free.
+  the dependency points **core ← llm** and `core/` stays pydantic-free. It also owns the
+  credential gate: `LLMClient.__init__` calls `load_env()` then raises `MissingAPIKey` (a clean,
+  actionable error) *before* constructing `anthropic.Anthropic()`, so a missing key is one line,
+  not a stack dump.
 - **The keyword ledger has one home** — `assets/master_resume.tex`: the `% KEYWORD LEDGER`
   comment block plus the `\section{Technical Skills}` rows the digest mirrors as the ALLOWED
   palette (edit a skill in ONE place — the Technical Skills row). The digest surfaces it into the
@@ -266,5 +273,8 @@ terminal (no `-s` needed) so you read exactly what the model and tools did.
   owns a whole concern end to end).
 - Bullet style: tech on the heading line, "(Github)" links, one-line bullets, keep the
   specific numbers for the interview.
-- Secret: `ANTHROPIC_API_KEY` from the env (README documents it; a cron needs it in its env).
+- Secret: `ANTHROPIC_API_KEY`, read from a gitignored `.env` at the repo root via
+  `paths.load_env()` **or** from the shell env (export wins over `.env`; a cron needs it in its
+  env). With no key reachable, `LLMClient.__init__` raises `llm.MissingAPIKey` and the CLI
+  (`__main__.py`) prints one actionable line and exits 2 — never a raw SDK traceback.
 - Big changes go on a **git worktree**.
