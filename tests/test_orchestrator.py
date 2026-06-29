@@ -531,5 +531,42 @@ def test_logger_one_json_object_per_line(tmp_path):
     assert run_done["failures"] == 0
 
 
+# --------------------------------------------------------------------------- #
+# Skill-category contract: only the four page categories are legal
+# --------------------------------------------------------------------------- #
+def test_skillrow_rejects_invented_categories():
+    """The model's structured-output schema MACHINE-ENFORCES the four categories,
+    so the whole class of invented domain buckets is impossible, not just frowned on."""
+    from pydantic import ValidationError
+    from tailor.llm import SkillRow
+
+    for good in ("Languages", "Frameworks", "Developer Tools", "Libraries"):
+        assert SkillRow(category=good, content="x").category == good
+    for bad in ("Domain", "AI / ML", "Finance / Quant", "Software Engineering",
+                "Hardware & Digital Logic", "Tools"):
+        with pytest.raises(ValidationError):
+            SkillRow(category=bad, content="x")  # type: ignore[arg-type]
+
+
+def test_coerce_skill_category_normalizes_legacy_on_disk_rows():
+    """Recorded slot files predating the enum still load: ``slots_from_data`` folds
+    any legacy/invented category onto one of the four (label-only -- honesty is
+    unaffected) instead of raising."""
+    from tailor.core.slots import SlotsData
+    from tailor.llm import coerce_skill_category, slots_from_data
+
+    assert coerce_skill_category("developer tools") == "Developer Tools"
+    assert coerce_skill_category("Programming Languages") == "Languages"
+    assert coerce_skill_category("ML Libraries") == "Libraries"
+    assert coerce_skill_category("Finance / Quant") == "Developer Tools"   # catch-all
+
+    legacy: SlotsData = {
+        "company": "acme", "experiences": [], "projects": [],
+        "skills": [["Languages", "Python"], ["Finance / Quant", "Time Series"]],
+        "uncovered": []}
+    slots = slots_from_data(legacy)   # must not raise
+    assert [r.category for r in slots.skills] == ["Languages", "Developer Tools"]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
