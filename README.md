@@ -70,8 +70,12 @@ build_resume.py             standalone helper to rebuild resume PDFs by hand
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...      # the program reads the key from the env
+cp .env.example .env                     # then edit .env: ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+The program reads `ANTHROPIC_API_KEY` from a `.env` file at the repo root (gitignored)
+**or** from the shell environment — a shell `export ANTHROPIC_API_KEY=…` always wins over
+`.env`. No key anywhere? The run stops with one clear, actionable line (not a traceback).
 
 You also need a LaTeX toolchain (`pdflatex`) installed for PDF compilation.
 

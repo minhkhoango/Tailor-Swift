@@ -19,6 +19,7 @@ from __future__ import annotations
 import sys
 
 from . import discover_jds, run, why
+from .llm import MissingAPIKey
 
 
 def main(argv: list[str]) -> int:
@@ -28,27 +29,34 @@ def main(argv: list[str]) -> int:
     elif "--force" in argv:                    # flag form for the batch verb
         force, argv = True, [a for a in argv if a != "--force"]
 
-    if argv and argv[0] == "why":
-        globs = argv[1:]
-        if not globs:
-            print("usage: tailor [force] why <glob> [<glob>...]", file=sys.stderr)
+    # Argv parsing (and its usage errors) runs before any model call; only the
+    # action branches construct the LLM client, so a missing key surfaces exactly
+    # once here as a clean, no-traceback message instead of a raw stack dump.
+    try:
+        if argv and argv[0] == "why":
+            globs = argv[1:]
+            if not globs:
+                print("usage: tailor [force] why <glob> [<glob>...]", file=sys.stderr)
+                return 2
+            written = why(globs, force)
+            print(f"wrote {len(written)} why_company.md file(s)")
+            return 0
+
+        if argv:
+            print(f"unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
+            print("usage: tailor | tailor --force | tailor [force] why <glob>...", file=sys.stderr)
             return 2
-        written = why(globs, force)
-        print(f"wrote {len(written)} why_company.md file(s)")
-        return 0
 
-    if argv:
-        print(f"unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
-        print("usage: tailor | tailor --force | tailor [force] why <glob>...", file=sys.stderr)
+        jds = discover_jds()
+        if not jds:
+            print("no jobDescription/*.txt found", file=sys.stderr)
+            return 1
+        reports = run(jds, force)
+        failures = sum(1 for r in reports if not r.shippable)
+        return 1 if failures else 0
+    except MissingAPIKey as exc:
+        print(f"\nerror: {exc}", file=sys.stderr)
         return 2
-
-    jds = discover_jds()
-    if not jds:
-        print("no jobDescription/*.txt found", file=sys.stderr)
-        return 1
-    reports = run(jds, force)
-    failures = sum(1 for r in reports if not r.shippable)
-    return 1 if failures else 0
 
 
 if __name__ == "__main__":

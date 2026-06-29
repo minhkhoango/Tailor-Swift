@@ -24,6 +24,7 @@ per-block master notes.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
         ToolUnionParam,
     )
 
+from .core.paths import ENV_FILE, load_env
 from .core.slots import (
     BlockData,
     BulletData,
@@ -373,11 +375,48 @@ class SlotSession:
                           out.model_dump_json(indent=2), system_text)
 
 
+class MissingAPIKey(RuntimeError):
+    """No Anthropic credential reachable -- raised *before* the SDK is constructed.
+
+    The bare ``anthropic.Anthropic()`` constructor raises its own low-level
+    ``AnthropicError`` ("api_key client option must be set...") with a stack
+    trace that buries the one thing the user needs to do. We pre-check and raise
+    this instead, carrying an actionable message; the CLI catches it and prints
+    that message with no traceback (see ``tailor/__main__.py``).
+    """
+
+
+# What we accept as "a key is present": either the standard API key or the
+# gateway auth token the SDK also honors.
+_CREDENTIAL_ENV_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+
+_MISSING_KEY_HELP = (
+    "No Anthropic API key found -- the tailor loop needs one to call the model.\n"
+    f"  Looked in the environment and in {ENV_FILE} (both empty).\n"
+    "\n"
+    "  Fix one of these:\n"
+    "    1. Put it in a .env file at the repo root (gitignored):\n"
+    "         cp .env.example .env\n"
+    "         # then edit .env so it reads:  ANTHROPIC_API_KEY=sk-ant-...\n"
+    "    2. Or export it in your shell:\n"
+    "         export ANTHROPIC_API_KEY=sk-ant-...\n"
+    "\n"
+    "  Get a key at https://console.anthropic.com/settings/keys"
+)
+
+
 class LLMClient:
     """Wraps the Anthropic SDK + the cached prefix. One per run; reused across JDs."""
 
     def __init__(self) -> None:
         import anthropic  # imported lazily so the fast test suite never constructs it
+        # Bridge the gitignored .env into the process env the SDK reads. A shell
+        # export still wins (load_env never overrides an already-set var). Done
+        # here, at construction, so importing the package never touches .env and
+        # the hermetic test suite (which injects a fake llm) stays untouched.
+        load_env()
+        if not any(os.environ.get(name) for name in _CREDENTIAL_ENV_VARS):
+            raise MissingAPIKey(_MISSING_KEY_HELP)
         self._client = anthropic.Anthropic()
         self._system = system_blocks()
 
