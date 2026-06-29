@@ -447,6 +447,7 @@ def test_coerce_skill_category_normalizes_legacy_on_disk_rows():
     """Recorded slot files predating the enum still load: ``slots_from_data`` folds
     any legacy/invented category onto one of the four (label-only -- honesty is
     unaffected) instead of raising."""
+    from tailor.core.slots import SlotsData
     from tailor.llm import coerce_skill_category, slots_from_data
 
     assert coerce_skill_category("developer tools") == "Developer Tools"
@@ -454,9 +455,10 @@ def test_coerce_skill_category_normalizes_legacy_on_disk_rows():
     assert coerce_skill_category("ML Libraries") == "Libraries"
     assert coerce_skill_category("Finance / Quant") == "Developer Tools"   # catch-all
 
-    legacy = {"company": "acme", "experiences": [], "projects": [],
-              "skills": [["Languages", "Python"], ["Finance / Quant", "Time Series"]],
-              "uncovered": []}
+    legacy: SlotsData = {
+        "company": "acme", "experiences": [], "projects": [],
+        "skills": [["Languages", "Python"], ["Finance / Quant", "Time Series"]],
+        "uncovered": []}
     slots = slots_from_data(legacy)   # must not raise
     assert [r.category for r in slots.skills] == ["Languages", "Developer Tools"]
 
