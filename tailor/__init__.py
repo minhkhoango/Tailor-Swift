@@ -18,8 +18,9 @@ abort is logged loudly.
 from __future__ import annotations
 
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Callable, Protocol, TypeVar
 
 from .core.capture import capture_ai_baseline, is_frozen
 from .core.chain import Report, run_chain
@@ -29,6 +30,36 @@ from .llm import EmitResult, Why, from_model
 from .log import RunLogger, new_logger
 
 MAX_PASSES = 2
+
+# Hard ceiling on JDs tailored at once. Work is I/O-bound (model HTTP + the
+# pdflatex subprocess both release the GIL), so threads -- not processes -- give
+# real concurrency. Each JD is independent: its own SlotSession, its own scratch
+# dir, its own output/<stem>/ and dataset/<stem>/, so a 15-wide fan-out never
+# shares mutable state. The one cross-thread resource, the run logger, is locked.
+MAX_WORKERS = 15
+
+_T = TypeVar("_T")
+_R = TypeVar("_R")
+
+
+def _pool_map(items: list[_T], work: Callable[[_T], _R]) -> list[_R]:
+    """Run ``work(item)`` over ``items`` on up to ``MAX_WORKERS`` threads, returning
+    results in the original input order (not completion order).
+
+    ``work`` MUST NOT raise: each caller wraps its real work in a try/except that
+    turns a single JD's blow-up into a logged failure result, so one bad JD never
+    sinks the other fourteen in flight (the pool keeps draining). The worker count
+    is capped at both ``MAX_WORKERS`` and ``len(items)`` so a 3-JD batch spawns 3
+    threads, not 15.
+    """
+    if not items:
+        return []
+    results: dict[int, _R] = {}
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(items))) as pool:
+        futures = {pool.submit(work, item): i for i, item in enumerate(items)}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+    return [results[i] for i in range(len(items))]
 
 # A chain is anything with run_chain's shape; tests pass a fake returning Reports.
 # It receives a canonical (core) Slots -- the orchestrator converts pydantic once.
@@ -134,9 +165,30 @@ def _already_done(stem: str) -> bool:
     return (OUTPUT / stem / SLOTS_NAME).exists()
 
 
+def _tailor_path(path: Path, llm: LLM, chain: Chain, log: RunLogger) -> Report:
+    """Tailor one JD file, isolating any blow-up so the pool keeps draining.
+
+    The thread worker for :func:`run`. A crash in one JD (network drop, a model
+    error, a pdflatex failure that escapes the chain) is caught here, logged as a
+    loud ``error`` event, and turned into a non-shippable ``ERROR`` ``Report`` --
+    so it counts as a batch failure but never cancels the other in-flight JDs.
+    """
+    stem = path.stem
+    try:
+        return tailor_one(stem, path.read_text(encoding="utf-8"), llm, chain, log)
+    except Exception as exc:  # noqa: BLE001 - isolate: one JD must not sink the batch
+        log.event("error", stem=stem, error=f"{type(exc).__name__}: {exc}")
+        return Report(stem, "ERROR", None, [], False, text=f"crashed: {exc}")
+
+
 def run(jd_paths: list[Path], force: bool, llm: LLM | None = None,
         chain: Chain | None = None, log: RunLogger | None = None) -> list[Report]:
     """Tailor every JD in ``jd_paths`` (skipping ones already done unless ``force``).
+
+    JDs run concurrently -- up to :data:`MAX_WORKERS` at once -- since each is an
+    independent, I/O-bound chain. The skip-existing scan runs serially first (it is
+    a cheap stat, no API), so only the JDs that actually need work are fanned out;
+    the returned reports stay in ``jd_paths`` order regardless of finish order.
 
     The real ``llm`` is constructed lazily only when not injected, so the fast test
     suite -- which always injects a fake -- never touches the metered API.
@@ -149,18 +201,17 @@ def run(jd_paths: list[Path], force: bool, llm: LLM | None = None,
         llm = LLMClient()
 
     log.event("run_start", argv=[p.name for p in jd_paths], jd_count=len(jd_paths))
-    reports: list[Report] = []
+    todo: list[Path] = []
+    for path in jd_paths:
+        if not force and _already_done(path.stem):
+            log.event("skip", stem=path.stem, reason="already-done")
+        else:
+            todo.append(path)
+
     failures = 0
     try:
-        for path in jd_paths:
-            stem = path.stem
-            if not force and _already_done(stem):
-                log.event("skip", stem=stem, reason="already-done")
-                continue
-            report = tailor_one(stem, path.read_text(encoding="utf-8"), llm, chain, log)
-            reports.append(report)
-            if not report.shippable:
-                failures += 1
+        reports = _pool_map(todo, lambda p: _tailor_path(p, llm, chain, log))
+        failures = sum(1 for r in reports if not r.shippable)
     finally:
         log.event("run_done", jd_count=len(jd_paths), failures=failures)
         if own_log:
@@ -197,12 +248,42 @@ def match_jds(globs: list[str]) -> list[Path]:
     return list(found.values())
 
 
+def _why_one(path: Path, force: bool, llm: LLM, chain: Chain,
+             log: RunLogger) -> Path | None:
+    """Tailor-if-missing then write one ``why_company.md`` (the thread worker for
+    :func:`why`). Returns the written path, ``None`` if the why already existed
+    (idempotent skip) or the stem crashed -- a blow-up is caught and logged so one
+    bad company never sinks the rest of the fan-out.
+    """
+    stem = path.stem
+    try:
+        jd_text = path.read_text(encoding="utf-8")
+        if force or not _already_done(stem):
+            tailor_one(stem, jd_text, llm, chain, log)
+        why_path = OUTPUT / stem / "why_company.md"
+        if why_path.exists() and not force:
+            log.event("skip", stem=stem, reason="why exists")
+            return None
+        blurb, usage = llm.why(stem, jd_text, _url_hint(stem))
+        log.event("why_search", stem=stem, url_used=blurb.url_used,
+                  facts=blurb.impressive_numbers + blurb.notable_specifics, **usage)
+        written = _write_why(stem, blurb)
+        log.event("why_write", stem=stem, path=str(written),
+                  todo=blurb.why_company.startswith("[TODO"))
+        return written
+    except Exception as exc:  # noqa: BLE001 - isolate: one company must not sink the batch
+        log.event("error", stem=stem, error=f"{type(exc).__name__}: {exc}")
+        return None
+
+
 def why(globs: list[str], force: bool, llm: LLM | None = None,
         chain: Chain | None = None, log: RunLogger | None = None) -> list[Path]:
     """Generate ``output/<stem>/why_company.md`` for each matched JD (idempotent).
 
     Per stem: tailor the resume first if it is missing, then generate the why
-    blurb unless it already exists (``force`` overrides both gates).
+    blurb unless it already exists (``force`` overrides both gates). Matched JDs
+    run concurrently, up to :data:`MAX_WORKERS` at once -- each stem is independent
+    (its own session, scratch dir, and ``why_company.md``).
     """
     own_log = log is None
     log = log or new_logger("why")
@@ -211,24 +292,10 @@ def why(globs: list[str], force: bool, llm: LLM | None = None,
         from .llm import LLMClient
         llm = LLMClient()
 
-    written: list[Path] = []
     try:
-        for path in match_jds(globs):
-            stem = path.stem
-            jd_text = path.read_text(encoding="utf-8")
-            if force or not _already_done(stem):
-                tailor_one(stem, jd_text, llm, chain, log)
-            why_path = OUTPUT / stem / "why_company.md"
-            if why_path.exists() and not force:
-                log.event("skip", stem=stem, reason="why exists")
-                continue
-            blurb, usage = llm.why(stem, jd_text, _url_hint(stem))
-            log.event("why_search", stem=stem, url_used=blurb.url_used,
-                      facts=blurb.impressive_numbers + blurb.notable_specifics, **usage)
-            written.append(_write_why(stem, blurb))
-            log.event("why_write", stem=stem, path=str(written[-1]),
-                      todo=blurb.why_company.startswith("[TODO"))
+        results = _pool_map(match_jds(globs),
+                            lambda p: _why_one(p, force, llm, chain, log))
+        return [p for p in results if p is not None]
     finally:
         if own_log:
             log.close()
-    return written

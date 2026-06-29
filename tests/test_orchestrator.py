@@ -245,6 +245,111 @@ def test_run_force_redoes_done(monkeypatch, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# Batch run(): concurrency, order, failure isolation
+# --------------------------------------------------------------------------- #
+class _ConcSession:
+    """Records peak concurrency via a shared barrier, then ships canned OK slots.
+
+    Every JD's emit() blocks on one barrier sized to the whole batch: it can only
+    release when ALL JDs have reached emit at once, so the test deadlocks (and
+    fails on the barrier timeout) unless the orchestrator truly ran them in
+    parallel. The stem named ``Boom`` raises *after* the barrier, proving a single
+    JD's blow-up is isolated without stalling the others.
+    """
+
+    def __init__(self, barrier: Any, peak: dict[str, int], lock: Any) -> None:
+        self._barrier, self._peak, self._lock = barrier, peak, lock
+
+    def emit(self, user_text: str) -> EmitResult:
+        stem = user_text.split("-", 1)[1]
+        with self._lock:
+            self._peak["active"] += 1
+            self._peak["max"] = max(self._peak["max"], self._peak["active"])
+        self._barrier.wait(timeout=10)            # all JDs must arrive together
+        with self._lock:
+            self._peak["active"] -= 1
+        if stem == "Boom":
+            raise RuntimeError("kaboom")
+        return EmitResult(make_slots(company=stem), dict(_USAGE), user_text,
+                          "{}", "SYS")
+
+
+class _ConcLLM:
+    def __init__(self, barrier: Any, peak: dict[str, int], lock: Any) -> None:
+        self._args = (barrier, peak, lock)
+
+    def session(self) -> _ConcSession:
+        return _ConcSession(*self._args)           # fresh per JD, like the real client
+
+    def why(self, stem: str, jd_text: str, url_hint: str) -> tuple[Why, dict[str, int]]:
+        raise AssertionError("run() must not call why()")
+
+
+def _conc_chain(stem: str, slots: CoreSlots, work_dir: Path) -> Report:
+    wd = Path(work_dir)
+    wd.mkdir(parents=True, exist_ok=True)
+    (wd / "resume.slots.json").write_text(pretty_slots_json(to_data(slots)), encoding="utf-8")
+    (wd / "resume.tex").write_text("% tex", encoding="utf-8")
+    (wd / "Khoa_Ngo_resume.pdf").write_bytes(b"%PDF fake")
+    return make_report(stem=stem, verdict="OK")
+
+
+def test_run_is_parallel_order_isolated(monkeypatch, tmp_path):
+    """Five JDs run at once; order is preserved; the one crash is isolated."""
+    import threading
+
+    out, _, _, jd = redirect_paths(monkeypatch, tmp_path)
+    names = ["A", "B", "Boom", "D", "E"]
+    paths = [jd / f"{n}.txt" for n in names]
+    for p, n in zip(paths, names):
+        p.write_text(f"jd-{n}", encoding="utf-8")
+
+    barrier = threading.Barrier(len(names))
+    peak = {"active": 0, "max": 0}
+    llm = _ConcLLM(barrier, peak, threading.Lock())
+    log_path = tmp_path / "log.jsonl"
+    log = RunLogger(log_path)
+
+    reports = run(paths, force=True, llm=llm, chain=_conc_chain, log=log)
+    log.close()
+
+    assert [r.stem for r in reports] == names      # input order, not finish order
+    assert peak["max"] == len(names)               # all five were in flight together
+    boom = next(r for r in reports if r.stem == "Boom")
+    assert not boom.shippable and boom.verdict == "ERROR"
+    assert {r.stem for r in reports if r.shippable} == {"A", "B", "D", "E"}
+    for n in ("A", "B", "D", "E"):                  # the survivors shipped
+        assert (out / n / "resume.slots.json").exists()
+    assert not (out / "Boom").exists()             # the crash shipped nothing
+    errs = [e for e in read_events(log_path) if e["event"] == "error"]
+    assert errs and errs[0]["stem"] == "Boom" and "RuntimeError" in errs[0]["error"]
+
+
+def test_logger_thread_safe_lines_stay_whole(tmp_path):
+    """Concurrent event() calls never interleave: every line is one valid JSON object."""
+    import threading
+
+    path = tmp_path / "t.jsonl"
+    log = RunLogger(path)
+
+    def hammer(i: int) -> None:
+        for j in range(50):
+            log.event("llm_call", stem=f"s{i}", **{"pass": j}, out_tok=i * 100 + j,
+                      cache_read_tok=0)
+
+    threads = [threading.Thread(target=hammer, args=(i,)) for i in range(15)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    log.close()
+
+    recs = read_events(path)                        # json.loads each line -> raises if torn
+    assert len(recs) == 15 * 50
+    assert all(r["event"] == "llm_call" for r in recs)
+
+
+# --------------------------------------------------------------------------- #
 # CLI argv parse
 # --------------------------------------------------------------------------- #
 def _patch_cli(monkeypatch):
