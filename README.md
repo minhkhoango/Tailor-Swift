@@ -78,12 +78,17 @@ You also need a LaTeX toolchain (`pdflatex`) installed for PDF compilation.
 ## Tests
 
 ```bash
-pytest -m "not inspect"   # fast hermetic suite (no network, no LaTeX) + core fixtures
+pytest -m "not inspect"   # fast hermetic suite (no network, no LaTeX) + core fixtures + e2e replay
 pytest -s -m inspect      # tier-3 inspect dump: real chain on slot files, eyeball the output
+pytest --io               # also dump each subject's full SENT/RECEIVED/FIT/HONESTY/SHIPPED I/O
+pytest -m live            # hand-run real-Anthropic smoke (needs a key + pdflatex; self-skips)
 ```
 
-The root `conftest.py` trip-wires the real Anthropic client, so no test can touch the
-metered API by accident.
+The tier-3 e2e (`tests/test_e2e.py`) replays a fixture's recorded slots through the **real**
+orchestrator (`run → tailor_one → chain → ship + log`) with no network, then asserts on the
+shipped artifacts and JSONL log. The root `conftest.py` trip-wires the real Anthropic client,
+so no test can touch the metered API by accident — the lone `@pytest.mark.live` smoke is the
+only opt-in exception and is deselected unless you ask for it with `-m live`.
 
 ---
 
