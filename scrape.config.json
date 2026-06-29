@@ -1,0 +1,55 @@
+{
+  "limit": 15,
+  "login": true,
+  "force": false,
+  "defaults": {
+    "category": [
+      "Software Engineering",
+      "Backend Engineering",
+      "Electrical Engineering",
+      "AI & Machine Learning",
+      "IT & Security",
+      "Data Engineering",
+      "Data Science",
+      "Data & Analytics",
+      "Software QA & Testing",
+      "Software Development Management",
+      "AI/ML/GenAI Engineering",
+      "DevOps & Infrastructure",
+      "AI/ML Engineering Management",
+      "AI Research",
+      "Low Level System Software",
+      "Full-Stack Engineering",
+      "Frontend Engineering",
+      "Computer Hardware Engineering",
+      "Game Engineering",
+      "Telecommunications Engineering",
+      "DevOps Engineering",
+      "Cloud Engineering",
+      "Robotics and Automation Engineering",
+      "Control Systems Engineering",
+      "Electronics Design Engineering",
+      "DevOps Engineering Management",
+      "Quantitative Trading",
+      "Quantitative Analysis",
+      "Quantitative Research"
+    ],
+    "education": ["Bachelor's", "Associate's", "Certificate"],
+    "jobType": "Internship",
+    "excludeApplied": true,
+    "mostRecent": true
+  },
+  "searches": [
+    {
+      "name": "us",
+      "state": "United States",
+      "country": "United States",
+      "seasons": ["Summer 2027"]
+    },
+    {
+      "name": "remote",
+      "state": "Remote in USA",
+      "seasons": ["Summer 2027", "Fall 2026", "Winter 2027"]
+    }
+  ]
+}

@@ -49,10 +49,8 @@ dataset/
 .claude/hooks
 .claude/settings.json
 .claude/worktrees/
-# scrape-jobs skill: local browser profile + discovery dumps
-.claude/skills/scrape-jobs/.profile/
-.claude/skills/scrape-jobs/.debug/
-.claude/skills/scrape-jobs/last_run.json
+# scrape feeder: persistent browser login + run manifest (runtime state)
+.scrape/
 
 # Secrets
 .env

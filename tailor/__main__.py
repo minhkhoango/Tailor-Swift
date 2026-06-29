@@ -6,6 +6,8 @@ flag, per the chosen ergonomics)::
 
     tailor                       tailor every JD with no output/<stem>/ yet
     tailor --force               re-tailor ALL JDs (ignore skip; for testing)
+    tailor scrape                scrape simplify.jobs (scrape.config.json) then tailor
+    tailor force scrape          re-scrape (overwrite JDs) + re-tailor ALL
     tailor why <glob> [<glob>…]  apply-time why-company for matched JDs
     tailor force why <glob>…     regenerate why even if present
 
@@ -28,6 +30,24 @@ def main(argv: list[str]) -> int:
     elif "--force" in argv:                    # flag form for the batch verb
         force, argv = True, [a for a in argv if a != "--force"]
 
+    if argv and argv[0] == "scrape":
+        if argv[1:]:
+            print(f"unrecognized arguments: {' '.join(argv[1:])}", file=sys.stderr)
+            print("usage: tailor [force] scrape", file=sys.stderr)
+            return 2
+        from .core.scrape import load_config, run_scrape
+        # config `force:true` must reach BOTH halves: scrape overwrites the JD,
+        # and tailor must then re-run it (else the fresh JD is skipped as done).
+        effective_force = force or bool(load_config().get("force", False))
+        n = run_scrape(force_overwrite=effective_force)
+        print(f"scraped {n} new JD file(s); now tailoring ...")
+        jds = discover_jds()
+        if not jds:
+            print("no jobDescription/*.txt found after scrape", file=sys.stderr)
+            return 1
+        reports = run(jds, effective_force)
+        return 1 if sum(1 for r in reports if not r.shippable) else 0
+
     if argv and argv[0] == "why":
         globs = argv[1:]
         if not globs:
@@ -39,7 +59,8 @@ def main(argv: list[str]) -> int:
 
     if argv:
         print(f"unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
-        print("usage: tailor | tailor --force | tailor [force] why <glob>...", file=sys.stderr)
+        print("usage: tailor | tailor --force | tailor [force] scrape | "
+              "tailor [force] why <glob>...", file=sys.stderr)
         return 2
 
     jds = discover_jds()
