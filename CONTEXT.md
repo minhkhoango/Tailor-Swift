@@ -114,13 +114,15 @@ hook anymore. The orchestrator hands it a slot dict + a working dir:
 
 **assemble → compile → fit-check → honesty-check → one combined report.**
 
-- **Assemble** (`tailor/core/assemble_resume.py`) — owns both the slot schema *and* the
-  mechanical build: copy preamble/heading/Education verbatim, emit chosen blocks (bullets
-  byte-identical by id or from `text`), rebuild Technical Skills from slot rows. **Ordering is
-  owned here, not by the model**: experiences forced to IOE→FPT; projects sorted by master
-  end-date (most recent first, "Present" beats any date); stable sort keeps slot order on a
-  date tie. Each validation is a pure checker (`check_reword`, `stack_items`, …) so the
-  inspect harness can tabulate every problem at once instead of raising on the first.
+- **Assemble** (`tailor/core/assemble_resume.py`) — owns the mechanical build *only* (the slot
+  schema now lives in `core/slots.py` — see below): copy preamble/heading/Education verbatim,
+  emit chosen blocks (bullets byte-identical by id or from `text`), rebuild Technical Skills from
+  slot rows. It takes a canonical `Slots` and writes the `.tex` — one door, `assemble(slots,
+  out_dir)`. **Ordering is owned here, not by the model**: experiences forced to IOE→FPT;
+  projects sorted by master end-date (most recent first, "Present" beats any date); stable sort
+  keeps slot order on a date tie. Each validation is a pure checker (`check_reword`,
+  `stack_items`, …) so the inspect harness can tabulate every problem at once instead of raising
+  on the first.
 - **Compile** (`tailor/core/pdf_compile.py`) — pdflatex, two passes for resumes.
 - **Fit-check** (`tailor/core/check_resume_fit.py`) — reads rendered word-boxes via pdfplumber
   to measure fullness and detect spillover. It only *detects*; it never edits the `.tex`. Runs
@@ -146,13 +148,22 @@ analytics need no separate ledger: `jq 'select(.event=="jd_done" and .verdict!="
 - **The model writes one structure, code does the rest.** The `Slots` object is the entire LLM
   surface. Assembly, ordering, compilation, measurement, and the deterministic honesty check
   are all code. This split is deliberate — it keeps the honest facts mechanically guaranteed.
+- **`core/slots.py` is the single home for the Slot concern.** The whole Slot lifecycle lives in
+  one pydantic-free module: the canonical `@dataclass Slots` (with `EntrySpec`/`BulletSpec`), the
+  on-disk `SlotsData`/`BlockData`/`BulletData` TypedDicts, `SlotsError`, `parse_slots`,
+  `from_json` (load a slot file), `to_data` (back to the on-disk dict, key order preserved), and
+  the `compact_slots_json`/`pretty_slots_json` renderers. Nothing else parses or serializes a
+  slot. The canonical form is the **dataclass**; the on-disk dict is just its serialized shape.
 - **`paths.py` is the single home for repo layout.** Relocate the package and only that file
   changes. No other module re-derives the root.
 - **`tex_parse.py` is the single home for LaTeX parsing** (one brace matcher, one comment
   stripper, one master-block parser). Don't reimplement parsing elsewhere — `digest.py` and
   the assembler both go through it.
-- **`llm.py` is the only module that talks to the model.** It owns the `Slots`/`Why` schemas,
-  the `SYSTEM_PROMPT` brain, the cached prefix, and the one web-search `why` call.
+- **`llm.py` is the only module that talks to the model.** It owns the *pydantic* `Slots`/`Why`
+  wire schemas (what `messages.parse` enforces), the `SYSTEM_PROMPT` brain, the cached prefix,
+  and the one web-search `why` call. The pydantic `Slots` is the wire form only: `from_model`
+  (in `llm.py`) adapts it into the canonical `core/slots.py` dataclass right after parsing, so
+  the dependency points **core ← llm** and `core/` stays pydantic-free.
 - **The keyword ledger has one home** — `assets/master_resume.tex`: the `% KEYWORD LEDGER`
   comment block plus the `\section{Technical Skills}` rows the digest mirrors as the ALLOWED
   palette (edit a skill in ONE place — the Technical Skills row). The digest surfaces it into the
@@ -188,8 +199,9 @@ dataset/<stem>/                 frozen AI-baseline + human-final slot benchmark 
 .tailor_cache/<stem>/           scratch for in-flight passes (gitignored; kept on abort)
 logs/tailor-<ts>.jsonl          per-run JSONL event log (gitignored)
 tailor/                         the program: __main__ (CLI), __init__ (orchestrator), llm, digest, log
-tailor/core/                    the deterministic core: assemble, check_resume_fit, pdf_compile,
-                                tex_parse, paths, chain, capture, watch
+tailor/core/                    the deterministic core: slots (the Slot concern: schema/parse/
+                                serialize), assemble, check_resume_fit, pdf_compile, tex_parse,
+                                paths, chain, capture, watch
 .claude/skills/scrape-jobs/     the JD feeder (Playwright + simplify JSON APIs)
 build_resume.py                 standalone user tool: rebuild resume PDFs by hand (no package import)
 tests/                          pytest suite (tier-1 hermetic, tier-2 fixtures, tier-3 inspect)
