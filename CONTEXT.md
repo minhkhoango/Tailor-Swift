@@ -126,7 +126,10 @@ hook anymore. The orchestrator hands it a slot dict + a working dir:
 - **Compile** (`tailor/core/pdf_compile.py`) — pdflatex, two passes for resumes.
 - **Fit-check** (`tailor/core/check_resume_fit.py`) — reads rendered word-boxes via pdfplumber
   to measure fullness and detect spillover. It only *detects*; it never edits the `.tex`. Runs
-  in-process under the venv (no subprocess).
+  in-process under the venv (no subprocess). A Technical-Skills row whose words wrap past one
+  line is a **`WRAP`** verdict (severity `MULTIPAGE > OVERFULL > SPILLOVER > WRAP > UNDERFULL >
+  OK`): word-box geometry is the only place a wrapped row is visible, since the `.tex` source is
+  a single logical line either way.
 - **Honesty-check** — the deterministic number-traceability audit, in-process.
 - **Structure advisory** — a tailored resume always carries exactly three projects; any other
   count yields a non-blocking `structure: WARN` line (`EXPECTED_PROJECTS` in `chain.py`). It
@@ -136,12 +139,25 @@ hook anymore. The orchestrator hands it a slot dict + a working dir:
 The report verdicts the model reacts to: `UNDERFULL` / `OVERFULL` / `MULTIPAGE` / `SPILLOVER`
 / `FLAG` / `WRAP` (skills row) / `honesty: FLAGS [...]` / `structure: WARN` / `ERROR` / `OK`.
 
+`WRAP` is a **soft** verdict: it flips `ok` so the react loop screams the wrapped row at the
+model to prune, but it leaves `shippable` true. If the wrap survives `MAX_PASSES` the resume
+still ships — honesty stays the *only* hard gate. (`ok` = verdict OK **and** honesty clean,
+the loop-stop bar; `shippable` = verdict ≠ ERROR **and** honesty clean, the weaker
+accept-after-cap bar.)
+
 ## Logging
 
 One JSONL stream per run, `logs/tailor-<timestamp>.jsonl` — one JSON object per action, with a
 short human echo derived from the same event so live and on-disk never drift. Cron-era
 analytics need no separate ledger: `jq 'select(.event=="jd_done" and .verdict!="OK")'` answers
 "what failed".
+
+**The exact model I/O is on this stream.** Each pass logs a separate `llm_prompt` (the user
+text sent, plus the cached system prefix on pass 1 only) and `llm_response` (the slots JSON the
+model returned), untruncated — so a run log alone reconstructs precisely what was sent and
+received. The console echo for these stays a one-line char count; the full text lives only on
+disk. (For an interactive, eyeball view of the same I/O, run any e2e/fixture test with `--io` —
+see Tests.)
 
 ## Key boundaries / invariants
 
@@ -204,10 +220,32 @@ tailor/core/                    the deterministic core: slots (the Slot concern:
                                 paths, chain, capture, watch
 .claude/skills/scrape-jobs/     the JD feeder (Playwright + simplify JSON APIs)
 build_resume.py                 standalone user tool: rebuild resume PDFs by hand (no package import)
-tests/                          pytest suite (tier-1 hermetic, tier-2 fixtures, tier-3 inspect)
+docs/adr/<NNNN>-<slug>.md        architecture decision records (the heavyweight Why notes)
+tests/                          pytest suite (tier-1 hermetic, tier-2 fixtures, tier-3 e2e + inspect)
 tests/fixtures/<subject>/       self-labeling test cases; test_fixtures.py discovers + stages them
+tests/test_e2e.py               tier-3 replay e2e + the lone `live` real-API smoke (see Tests)
 tests/inspect_inputs/<stem>/    permanent inputs for the tier-3 inspect dump
 ```
+
+## Tests
+
+Three tiers, fastest/most-isolated first. The whole suite runs with the metered API
+**unreachable**: a root-conftest autouse fixture scrubs `ANTHROPIC_API_KEY` and replaces
+`anthropic.Anthropic` with a tripwire, so nothing can build the real client by accident.
+
+- **Tier 1 — hermetic units.** One function under test, no PDF, no network. The bulk.
+- **Tier 2 — fixtures.** `tests/fixtures/<subject>/`, self-labeling cases regenerated *from*
+  dataset slots (so they exercise real shapes), plus a few hand-built error probes
+  (`reword-too-long`, `unknown-key`, `multipage-allprojects`). Need pdflatex; skip via geometry.
+- **Tier 3 — e2e + inspect.** `test_e2e.py` replays a fixture's recorded `resume.slots.json`
+  through the **real** orchestrator (`run → tailor_one → chain → ship + log`) into a temp repo
+  via a `ReplayLLM` seam, then asserts on shipped artifacts and the JSONL log exactly as a user
+  sees them — deterministic and free. The inspect harness dumps the real chain for eyeballing.
+
+Two opt-outs of "hermetic + quiet": `@pytest.mark.live` (one test, hand-run with a key — the
+network guard steps aside only for this marker) hits the real API once through the full flow;
+`--io` dumps every subject's untruncated SENT / RECEIVED / FIT / HONESTY / SHIPPED blocks to the
+terminal (no `-s` needed) so you read exactly what the model and tools did.
 
 ## Conventions
 

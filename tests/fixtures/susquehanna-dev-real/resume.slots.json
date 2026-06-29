@@ -1,0 +1,7 @@
+{
+  "company": "quant",
+  "experiences": [{"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]}, {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}],
+  "projects": [{"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}], "emph": "Python, C++, Perforce"}, {"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}, {"key": "pr_pilot", "bullets": [{"id": 1}, {"text": "Validated the tool by cold-emailing 100 engineers traced from a 257-point Hacker News thread, surfacing feedback that commits should remain human-authored"}]}],
+  "skills": [["Languages", "Python, C++, JavaScript, TypeScript, SQL, Bash / Shell Scripting"], ["Finance / Quant", "Quantitative Finance, Equities, Stock Prediction, Trading Strategy, Time Series Analysis"], ["Data / Analytics", "Data Analysis, data science, Pandas, NumPy, Matplotlib, Seaborn, Jupyter, Excel"], ["AI / ML", "Machine Learning, Scikit-learn, Deep Learning, Neural Networks, PyTorch, LLM, Prompt Engineering"], ["Software Engineering", "OOP, REST APIs, Performance Optimization, Software Testing, Git, Docker"]],
+  "uncovered": ["Low latency C++ strategy development (C++ listed as a language but no compiled-language project in the pool)", "Polars (only Pandas/NumPy in source)"]
+}

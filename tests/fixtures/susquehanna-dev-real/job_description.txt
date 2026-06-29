@@ -1,0 +1,10 @@
+Requirements
+Enrolled in a bachelor's or master's program in computer science, computer engineering, mathematics, or closely related STEM discipline
+Intention to graduate with a minimum of a bachelor’s degree and begin full time employment by August 2028
+Strong software development skills in Python and a compiled language
+Experience and comfort working with data using libraries such as Pandas, Polars, or NumPy
+Exceptional quantitative, logical reasoning, and analytical skills
+Visa sponsorship is available for this position
+Responsibilities
+Work on challenging projects for trading strategy development teams in spaces such as signal creation and detection, quantitative strategy analysis, and low latency C++ strategy development
+Work on projects side by side with senior developers who understand the nuances of building complex trading strategies

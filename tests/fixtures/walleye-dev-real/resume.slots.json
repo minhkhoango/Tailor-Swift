@@ -1,0 +1,7 @@
+{
+  "company": "quant",
+  "experiences": [{"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]}, {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}],
+  "projects": [{"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}], "emph": "Python, LLM, Prompt Engineering"}, {"key": "pr_pilot", "bullets": [{"id": 1}, {"text": "Validated the workflow by cold-emailing 100 engineers traced from a 257-point Hacker News thread, surfacing feedback that commits should stay human-authored"}], "emph": "Python, LLM, GitHub Actions"}, {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}], "emph": "PaddleOCR, ONNX, TypeScript"}],
+  "skills": [["Languages", "Python, Bash / Shell Scripting, SQL, C++, JavaScript, TypeScript"], ["AI / ML", "Machine Learning, Deep Learning, PyTorch, Scikit-learn, LLM, AI agent, Prompt Engineering, NLP, genAI"], ["Finance / Quant", "Financial Markets, Equities, Stock Prediction, Quantitative Finance, Trading Strategy, Algorithmic Trading, Time Series Analysis"], ["Data / Analytics", "Data Analysis, data science, Pandas, NumPy, Matplotlib, Jupyter, Excel"], ["DevOps and Tools", "Linux, Git / Git workflows, Docker, CI/CD, AWS, Pipeline Orchestration"]],
+  "uncovered": ["Portfolio construction", "Proprietary columnar database experience", "Trade cost / execution analysis tooling"]
+}

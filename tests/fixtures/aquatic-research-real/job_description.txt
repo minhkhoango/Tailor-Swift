@@ -1,0 +1,21 @@
+Requirements
+Active student pursuing a BS, MS, or PhD in mathematics, statistics, machine learning, physics, computer science, or other scientific disciplines with an expected graduation date between Fall 2027 and Spring 2028.
+Demonstrated proficiency in quantitative analysis and problem-solving
+Proficiency in Python programming
+Prior experience tackling data-intensive challenges, conducting and completing statistical or applied mathematical research
+Successful participation in mathematical competitions is a plus e.g., IMO, Putnam
+Prior experience in a quantitative role within a trading environment a plus
+Responsibilities
+Collaborate closely with a team to develop and implement quantitative trading signals, models, and strategies.
+Design, implement, and evaluate research systems components using rigorous statistical methodologies.
+Gain exposure to diverse research areas, accelerating expertise in quantitative finance.
+Desired Qualifications
+Intellectually curious, creative, and rigorous
+Willingness to challenge assumptions and revise opinions in the face of compelling evidence
+Self-motivated and highly productive, with a strong sense of urgency and accountability
+Willing to take ownership of one’s work, working both independently and within a small team
+Meticulous attention to detail
+Ability to manage and prioritize multiple threads of work
+Able to work across disciplines
+Excellent communication and collaboration skills
+Comfortable providing and receiving actionable feedback in a collaborative team setting

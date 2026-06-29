@@ -7,8 +7,14 @@ line, so cron-era analytics need no separate ledger
 The console echo is a short human line derived from the same event, so what you
 read live and what lands on disk never drift.
 
-Event taxonomy (see PLAN.md §G): run_start, jd_start, skip, llm_call, slots,
-assemble, compile, fit, honesty, why_search, why_write, abort, jd_done, run_done.
+Event taxonomy (see PLAN.md §G): run_start, jd_start, skip, llm_prompt,
+llm_response, llm_call, slots, assemble, compile, fit, honesty, why_search,
+why_write, abort, jd_done, run_done.
+
+``llm_prompt`` / ``llm_response`` carry the FULL text sent to / received from the
+model (``text``; ``llm_prompt`` also carries the cached ``system`` prefix once, on
+pass 1). Their console echo is only a char count, so the full payload lands on disk
+without flooding the terminal.
 """
 
 from __future__ import annotations
@@ -25,6 +31,8 @@ _ECHO: dict[str, str] = {
     "run_start": "tailor: {jd_count} JD(s) — {argv}",
     "jd_start":  "▶ {stem}",
     "skip":      "  skip {stem} ({reason})",
+    "llm_prompt":   "  → prompt pass {pass} ({chars} chars sent)",
+    "llm_response": "  ← reply pass {pass} ({chars} chars)",
     "llm_call":  "  llm pass {pass} ({out_tok} out tok, cache_read={cache_read_tok})",
     "fit":       "  fit pass {pass}: {verdict} fill={fill}",
     "honesty":   "  honesty pass {pass}: {flags}",

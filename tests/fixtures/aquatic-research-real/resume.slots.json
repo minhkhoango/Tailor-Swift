@@ -1,0 +1,7 @@
+{
+  "company": "Quant Research",
+  "experiences": [{"key": "ioe", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}]}, {"key": "fpt", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]}],
+  "projects": [{"key": "tailor_swift", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}], "emph": "Python, Claude Code, LaTeX"}, {"key": "p4_stack", "bullets": [{"id": 1}, {"id": 2}], "emph": "Python, Typer, Perforce"}, {"key": "local_lens", "bullets": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}, {"id": 5}]}],
+  "skills": [["Languages", "Python, SQL, C++, JavaScript, TypeScript, Bash / Shell Scripting"], ["Finance / Quant", "Financial Markets, Equities, Stock Prediction, Quantitative Finance, Trading Strategy, Algorithmic Trading, Time Series Analysis, Feature Engineering, Macroeconomic Analysis"], ["Data / Analytics", "Data Analysis, data science, Pandas, NumPy, Matplotlib, Seaborn, Jupyter, Excel"], ["AI / ML", "Machine Learning, Deep Learning, Neural Networks, PyTorch, Scikit-learn, Prompt Engineering"], ["Software Engineering", "OOP, REST APIs, Software Testing, Performance Optimization, Pipeline Orchestration, Git, Linux"]],
+  "uncovered": ["Successful participation in mathematical competitions (IMO, Putnam)", "Prior experience in a quantitative role within a trading environment (live trading desk)"]
+}

@@ -310,7 +310,16 @@ def compute_fullness(page: Page,
 
 
 def build_verdict(page_count: int, fullness: Optional[float],
-                  bullets: list[BulletReport]) -> tuple[str, list[str]]:
+                  bullets: list[BulletReport],
+                  skill_rows: list[SkillRowReport]) -> tuple[str, list[str]]:
+    """Reduce the measured geometry to one verdict (+ any actionable notes).
+
+    Severity order: MULTIPAGE > OVERFULL > SPILLOVER > WRAP > UNDERFULL > OK. WRAP
+    (a Technical-Skills row that spills onto a 2nd rendered line) is a *soft* gate:
+    it flips ``ok`` so the react loop screams at the model to prune, but the resume
+    still ships after the pass cap (honesty is the only hard gate). It only fires
+    when nothing worse is wrong -- a wrapped skills row on an otherwise clean page.
+    """
     notes: list[str] = []
     if page_count >= 2:
         return "MULTIPAGE", notes
@@ -321,6 +330,11 @@ def build_verdict(page_count: int, fullness: Optional[float],
         return "OVERFULL", notes
     if spill:
         return "SPILLOVER", notes
+    wrapped = [s for s in skill_rows if s.wrapped]
+    if wrapped:
+        notes.append(f"{len(wrapped)} skill row(s) WRAP to >1 line: "
+                     f"{', '.join(s.category for s in wrapped)} (prune to fit)")
+        return "WRAP", notes
     if fullness is not None and fullness < FULLNESS_TARGET_LOW:
         return "UNDERFULL", notes
     if fullness is not None and fullness > FULLNESS_TARGET_HIGH:
@@ -336,7 +350,7 @@ def analyze_from_pages(tex: str, pages: list[Page], company: str) -> FitReport:
 
     if page_count != 1:
         return FitReport(company, page_count, None, None, None, [],
-                         *build_verdict(page_count, None, []))
+                         *build_verdict(page_count, None, [], []))
 
     page = pages[0]
     words = strip_markers(page.words)
@@ -363,12 +377,9 @@ def analyze_from_pages(tex: str, pages: list[Page], company: str) -> FitReport:
     n_skipped = sum(1 for b in bullets if not b.rendered)
     if n_skipped:
         notes.append(f"{n_skipped} bullet(s) skipped (low match confidence)")
-    n_wrap = sum(1 for s in skill_rows if s.wrapped)
-    if n_wrap:
-        wrapped = ", ".join(s.category for s in skill_rows if s.wrapped)
-        notes.append(f"{n_wrap} skill row(s) WRAP to >1 line: {wrapped} (prune to fit)")
 
-    verdict, vnotes = build_verdict(page_count, fullness, bullets)
+    # WRAP is now a real verdict (build_verdict owns the skill-wrap note too).
+    verdict, vnotes = build_verdict(page_count, fullness, bullets, skill_rows)
     notes.extend(vnotes)
     return FitReport(company, page_count, fullness, c_top, c_bottom,
                      bullets, verdict, notes, skill_rows)

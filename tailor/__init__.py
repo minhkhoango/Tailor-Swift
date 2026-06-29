@@ -25,7 +25,7 @@ from .core.capture import capture_ai_baseline, is_frozen
 from .core.chain import Report, run_chain
 from .core.paths import JOBDESC, OUTPUT, RESUME_JOBNAME, SCRATCH, SLOTS_NAME
 from .core.slots import Slots, to_data
-from .llm import Slots as ModelSlots, Why, from_model
+from .llm import EmitResult, Why, from_model
 from .log import RunLogger, new_logger
 
 MAX_PASSES = 2
@@ -36,7 +36,7 @@ Chain = Callable[[str, Slots, Path], Report]
 
 
 class Session(Protocol):
-    def emit(self, user_text: str) -> tuple[ModelSlots, dict[str, int]]: ...
+    def emit(self, user_text: str) -> EmitResult: ...
 
 
 class LLM(Protocol):
@@ -48,8 +48,18 @@ class LLM(Protocol):
 # Per-JD tailoring (the capped fix-up loop)
 # --------------------------------------------------------------------------- #
 def _log_pass(log: RunLogger, stem: str, n: int,
-              usage: dict[str, int], report: Report) -> None:
-    log.event("llm_call", stem=stem, **{"pass": n}, **usage)
+              emit: EmitResult, report: Report) -> None:
+    """Log one pass: the prompt sent + response received (verbatim), then the token
+    usage, fit verdict, and honesty result. ``llm_prompt``/``llm_response`` carry the
+    full text; their console echo is a short char count so the terminal stays clean."""
+    prompt_fields: dict[str, object] = {"chars": len(emit.prompt_sent),
+                                        "text": emit.prompt_sent}
+    if emit.system is not None:           # cached prefix: logged once, on pass 1
+        prompt_fields["system"] = emit.system
+    log.event("llm_prompt", stem=stem, **{"pass": n}, **prompt_fields)
+    log.event("llm_response", stem=stem, **{"pass": n},
+              chars=len(emit.response_received), text=emit.response_received)
+    log.event("llm_call", stem=stem, **{"pass": n}, **emit.usage)
     log.event("fit", stem=stem, **{"pass": n}, fill=report.fill,
               verdict=report.verdict, flags=report.flags)
     log.event("honesty", stem=stem, **{"pass": n},
@@ -69,18 +79,18 @@ def tailor_one(stem: str, jd_text: str, llm: LLM, chain: Chain, log: RunLogger,
     shutil.rmtree(scratch, ignore_errors=True)
     session = llm.session()
 
-    slots, usage = session.emit(jd_text)
-    core = from_model(slots)
+    emit = session.emit(jd_text)
+    core = from_model(emit.slots)
     report = chain(stem, core, scratch)
     passes = 1
-    _log_pass(log, stem, passes, usage, report)
+    _log_pass(log, stem, passes, emit, report)
 
     while not report.ok and passes < max_passes:
-        slots, usage = session.emit(report.text)
-        core = from_model(slots)
+        emit = session.emit(report.text)
+        core = from_model(emit.slots)
         report = chain(stem, core, scratch)
         passes += 1
-        _log_pass(log, stem, passes, usage, report)
+        _log_pass(log, stem, passes, emit, report)
 
     report.passes = passes
     report.uncovered = list(core.uncovered)

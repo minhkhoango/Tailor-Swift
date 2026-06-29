@@ -1,0 +1,14 @@
+Requirements
+Are pursuing an undergraduate or advanced degree in computer science, engineering, statistics, mathematics, or a related field, with an expected graduation date between December 2027 and June 2028.
+Exhibit strong quantitative and analytical skills, including proficiency in a scripting language (Python/Bash/Perl) and experience in UNIX/Linux/BSD environments.
+Demonstrate familiarity with popular machine learning/deep learning/statistical packages (such as scikit-learn, TensorFlow, PyTorch, etc.).
+Are self-starters who enjoy digging into complex, open-ended problems and can work both independently and collaboratively with a team.
+Exhibit a genuine interest in financial markets, systematic investing, AI/LLM application, and using technology in dynamic, data-rich environments.
+Showcase creativity and enthusiasm for leveraging AI tools to enhance productivity, improve processes, and generate investment alpha.
+Thrive in a collaborative culture that values intellectual humility, creativity, and continuous learning.
+Responsibilities
+Develop and deploy quantitative infrastructure supporting alpha generation, portfolio construction, and algorithmic trading.
+Design and manage data pipelines; triage data integrity quality – improving reliability, consistency, and traceability of financial datasets.
+Partner with traders and researchers to develop and iterate on proprietary trading strategies and alphas.
+Build reporting and analysis tools for strategy risk, trade cost and execution using data from a proprietary columnar database.
+Utilize coding skills and leverage AI tools to oversee and improve automated trading systems.

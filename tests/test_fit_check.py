@@ -11,7 +11,7 @@ import unittest
 
 import _helpers  # noqa: F401  (path setup)
 from tailor.core import check_resume_fit as F
-from tailor.core.check_resume_fit import BulletReport, FitReport, Page, Word
+from tailor.core.check_resume_fit import BulletReport, FitReport, Page, SkillRowReport, Word
 
 
 def words(*specs: tuple[str, int]) -> list[Word]:
@@ -63,20 +63,34 @@ class Verdict(unittest.TestCase):
     def _bullets(self, flagged: bool) -> list[BulletReport]:
         return [BulletReport(1, "x", True, 2, 1, 1.0, flagged)]
 
+    def _skills(self, wrapped: bool) -> list[SkillRowReport]:
+        return [SkillRowReport("Languages", True, 2 if wrapped else 1, wrapped)]
+
     def test_multipage(self) -> None:
-        self.assertEqual(F.build_verdict(2, None, [])[0], "MULTIPAGE")
+        self.assertEqual(F.build_verdict(2, None, [], [])[0], "MULTIPAGE")
 
     def test_overfull(self) -> None:
-        self.assertEqual(F.build_verdict(1, 1.05, [])[0], "OVERFULL")
+        self.assertEqual(F.build_verdict(1, 1.05, [], [])[0], "OVERFULL")
 
     def test_underfull(self) -> None:
-        self.assertEqual(F.build_verdict(1, 0.80, [])[0], "UNDERFULL")
+        self.assertEqual(F.build_verdict(1, 0.80, [], [])[0], "UNDERFULL")
 
     def test_spillover(self) -> None:
-        self.assertEqual(F.build_verdict(1, 0.97, self._bullets(True))[0], "SPILLOVER")
+        self.assertEqual(F.build_verdict(1, 0.97, self._bullets(True), [])[0], "SPILLOVER")
+
+    def test_wrapped_skill_row_is_wrap(self) -> None:
+        # An otherwise-clean page with a 2-line skills row is WRAP, not OK.
+        self.assertEqual(
+            F.build_verdict(1, 0.97, self._bullets(False), self._skills(True))[0], "WRAP")
+
+    def test_spillover_outranks_wrap(self) -> None:
+        # A real spillover is worse than a skills wrap; SPILLOVER wins.
+        self.assertEqual(
+            F.build_verdict(1, 0.97, self._bullets(True), self._skills(True))[0], "SPILLOVER")
 
     def test_ok(self) -> None:
-        self.assertEqual(F.build_verdict(1, 0.97, self._bullets(False))[0], "OK")
+        self.assertEqual(
+            F.build_verdict(1, 0.97, self._bullets(False), self._skills(False))[0], "OK")
 
 
 class Spillover(unittest.TestCase):
