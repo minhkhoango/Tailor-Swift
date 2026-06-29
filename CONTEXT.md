@@ -84,9 +84,20 @@ match. Never sacrifice a fact to fill the page or to hit a JD keyword.
 ## The pipeline
 
 ```
-scrape-jobs ──▶ jobDescription/<stem>.txt ──▶ python -m tailor ──▶ output/<stem>/Khoa_Ngo_resume.pdf
-  (feeder)            (input)                  (the program)            (deliverable)
+tailor scrape ──▶ jobDescription/<stem>.txt ──▶ python -m tailor ──▶ output/<stem>/Khoa_Ngo_resume.pdf
+  (feeder)             (input)                  (the program)            (deliverable)
 ```
+
+The feeder is `tailor scrape` (code in `tailor/core/scrape.py`): it reads
+`scrape.config.json` — a structured `searches` list of plain fields (state /
+seasons / category …), re-encodes each into a simplify.jobs URL (no hand-edited
+300-char URL), captures the page's Typesense `multi_search`, merges all searches
+(de-dup by job id then content fingerprint), and writes one enriched
+`jobDescription/<Company>_<Role>.txt` per job — verbatim Requirements +
+Responsibilities, a fenced **Keywords** block the LLM reads, and an
+ignore-marked footer with the company + job-post links. It then runs the normal
+batch over `jobDescription/*.txt` (skipping already-done unless `force`). Network
++ login only; same filters → same files.
 
 Per JD, the program holds one stateful model conversation (the cached prefix — system prompt
 + digest, the digest carrying the keyword ledger + ALLOWED skill palette from the
@@ -209,7 +220,8 @@ see Tests.)
 assets/master_resume.tex       THE pool + \section{Technical Skills} + % KEYWORD LEDGER (the
                                digest mirrors skills as the ALLOWED palette; no references/, no
                                per-block honesty notes)
-jobDescription/<stem>.txt       JD input (from /scrape-jobs or dropped in by hand; gitignored)
+scrape.config.json              feeder config: structured `searches` (state/seasons/category…); committed
+jobDescription/<stem>.txt       JD input (from `tailor scrape` or dropped in by hand; gitignored)
 output/<stem>/                  per-stem: resume.slots.json → resume.tex → resume.pdf (+ why_company.md)
 dataset/<stem>/                 frozen AI-baseline + human-final slot benchmark pairs
 .tailor_cache/<stem>/           scratch for in-flight passes (gitignored; kept on abort)
@@ -217,8 +229,8 @@ logs/tailor-<ts>.jsonl          per-run JSONL event log (gitignored)
 tailor/                         the program: __main__ (CLI), __init__ (orchestrator), llm, digest, log
 tailor/core/                    the deterministic core: slots (the Slot concern: schema/parse/
                                 serialize), assemble, check_resume_fit, pdf_compile, tex_parse,
-                                paths, chain, capture, watch
-.claude/skills/scrape-jobs/     the JD feeder (Playwright + simplify JSON APIs)
+                                paths, chain, capture, watch, scrape (the JD feeder)
+.scrape/                        scrape runtime state: browser login + last_run.json (gitignored)
 build_resume.py                 standalone user tool: rebuild resume PDFs by hand (no package import)
 docs/adr/<NNNN>-<slug>.md        architecture decision records (the heavyweight Why notes)
 tests/                          pytest suite (tier-1 hermetic, tier-2 fixtures, tier-3 e2e + inspect)

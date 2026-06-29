@@ -19,13 +19,17 @@ hard gate: if a draft can't be made honest within 2 passes, **nothing ships**.
 
 ## How you use it
 
-1. **Get a job description in.** Drop a `.txt` into `jobDescription/`, or run `/scrape-jobs`
-   to pull them automatically from a filtered [simplify.jobs](https://simplify.jobs) list.
+1. **Get a job description in.** Drop a `.txt` into `jobDescription/`, or run
+   `python -m tailor scrape` to pull them from [simplify.jobs](https://simplify.jobs)
+   and tailor in one shot — the searches are edited as plain fields in
+   `scrape.config.json` (no hand-edited 300-char URL).
 
 2. **Run the program.**
 
    ```bash
    python -m tailor                 # tailor every JD with no output/<stem>/ yet
+   python -m tailor scrape          # scrape simplify.jobs (scrape.config.json) THEN tailor
+   python -m tailor force scrape    # re-scrape (overwrite JDs) + re-tailor ALL
    python -m tailor --force         # re-tailor ALL JDs (ignore skip; for testing)
    python -m tailor why Apple*      # apply-time "why this company" blurb(s)
    python -m tailor force why A* B* # regenerate the why blurb even if present
