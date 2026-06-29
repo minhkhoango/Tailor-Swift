@@ -27,7 +27,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -83,9 +83,44 @@ class SlotBlock(BaseModel):
     emph: str | None = None
 
 
+# The ONLY four skill-row categories a tailored resume may carry. These mirror the
+# master's ``\section{Technical Skills}`` rows exactly; the model often invents
+# domain buckets ("Domain", "AI / ML", "Finance / Quant", "Software Engineering")
+# to plug a JD's vocabulary -- forbidden. A ``Literal`` makes the structured-output
+# schema MACHINE-ENFORCE the four (the model can't return another value), so the
+# whole class of invented categories is impossible rather than merely discouraged.
+SkillCategory = Literal["Languages", "Frameworks", "Developer Tools", "Libraries"]
+_ALLOWED_SKILL_CATEGORIES: tuple[SkillCategory, ...] = (
+    "Languages", "Frameworks", "Developer Tools", "Libraries")
+
+
+def coerce_skill_category(raw: str) -> SkillCategory:
+    """Map an on-disk slot row's category onto one of the four enforced categories.
+
+    The LIVE model is constrained to the four by :class:`SkillRow` itself; this only
+    normalizes RECORDED slot files -- replay fixtures and older ``output/`` shipped
+    before the enum -- whose category may be an invented domain bucket, so they still
+    load through :func:`slots_from_data` instead of raising a validation error. Match
+    is case-insensitive on the four names, then a keyword sniff, then the Developer
+    Tools catch-all. Label-only: honesty traces a bullet's NUMBERS, never the skill
+    category name, so a relabelled legacy row ships exactly as honest as before.
+    """
+    s = raw.strip().lower()
+    for cat in _ALLOWED_SKILL_CATEGORIES:
+        if s == cat.lower():
+            return cat
+    if "lang" in s:
+        return "Languages"
+    if "frame" in s:
+        return "Frameworks"
+    if "lib" in s:
+        return "Libraries"
+    return "Developer Tools"
+
+
 class SkillRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    category: str
+    category: SkillCategory
     content: str
 
 
@@ -150,7 +185,8 @@ def slots_from_data(data: SlotsData) -> Slots:
         company=data.get("company", ""),
         experiences=[block(b) for b in data["experiences"]],
         projects=[block(b) for b in data["projects"]],
-        skills=[SkillRow(category=cat, content=val) for cat, val in data["skills"]],
+        skills=[SkillRow(category=coerce_skill_category(cat), content=val)
+                for cat, val in data["skills"]],
         uncovered=list(data.get("uncovered", [])),
     )
 
@@ -217,11 +253,16 @@ A `Slots` object:
   words over its source; when unsure a fact survives, use the id.
 - `emph` (projects only): pick <=3 techs from THAT block's heading default tech
   stack (the honest set for that block). Omit to keep the default.
-- `skills`: up to 5 `{category, content}` rows rebuilt per JD. Concrete tech first
-  (exact ATS strings from the ledger ALLOWED); add a soft/domain term only if the
-  JD repeats it, hard cap 1-2 total, never a row of pure domain words. Pack each
-  row until the next term would wrap; never repeat a keyword across rows; never
-  pull from FORBIDDEN; don't pad rows just to fill space.
+- `skills`: up to 5 `{category, content}` rows rebuilt per JD. Each `category` MUST
+  be EXACTLY one of these four -- the only legal categories (machine-enforced):
+  "Languages", "Frameworks", "Developer Tools", "Libraries". NEVER invent a domain
+  bucket ("Domain", "AI / ML", "Finance / Quant", "Data / Analytics", "Software
+  Engineering", "Hardware", ...): a JD's domain vocabulary is folded INTO one of the
+  four rows as concrete tech, or it is an `uncovered` must-have -- never its own row.
+  Concrete tech first (exact ATS strings from the ledger ALLOWED); add a soft/domain
+  term only if the JD repeats it, hard cap 1-2 total, never a row of pure domain
+  words. Pack each row until the next term would wrap; never repeat a keyword across
+  rows; never pull from FORBIDDEN; don't pad rows just to fill space.
 - `uncovered`: JD must-haves no honest pool block can cover. List them -- this is
   what changes whether Khoa hits "submit". Never invent a project to cover one.
 
@@ -350,15 +391,19 @@ class SlotSession:
         """Append a user turn (the JD, or a report), return the model's revised Slots
         plus the verbatim I/O for the run log (see :class:`EmitResult`)."""
         self._messages.append({"role": "user", "content": user_text})
-        # `low` effort keeps the thinking budget small for this SELECT + light-reword
-        # task; `messages.parse` merges it with the enforced Slots format. We pass
-        # plain dicts and echo response blocks straight back as request content;
-        # cast names the param type each list satisfies at runtime.
+        # SELECT + light-reword is a shallow task: a BOUNDED thinking budget (the
+        # 1024 floor the API allows) is plenty, and roughly halves wall-time vs the
+        # old ``adaptive`` config, which let the model burn ~2x the latency on a turn
+        # that only emits ~700 tokens (measured: adaptive ~16-18s vs budget=1024
+        # ~9s/call). `low` effort still caps the answer size; `messages.parse` merges
+        # both with the enforced Slots format. We pass plain dicts and echo response
+        # blocks straight back as request content; cast names the param type each
+        # list satisfies at runtime.
         resp = self._client.messages.parse(
             model=MODEL,
             max_tokens=8000,
             system=cast("list[TextBlockParam]", self._system),
-            thinking={"type": "adaptive"},
+            thinking={"type": "enabled", "budget_tokens": 1024},
             output_config={"effort": "low"},
             messages=cast("list[MessageParam]", self._messages),
             output_format=Slots,

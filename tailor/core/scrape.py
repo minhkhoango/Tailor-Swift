@@ -42,6 +42,7 @@ has no separate remote param.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import html
 import json
@@ -449,12 +450,29 @@ def fetch_detail(ctx: BrowserContext, job_id: str) -> dict[str, Any] | None:
 # Orchestration
 # --------------------------------------------------------------------------- #
 def _build_browser(p: Any, headless: bool) -> BrowserContext:
+    """Launch the persistent (logged-in) Chromium profile, hardened for WSL/headed.
+
+    Two stability fixes for the reported "a window opens then closes shortly":
+      * Stale singleton locks. A persistent profile keeps ``SingletonLock`` /
+        ``SingletonCookie`` files; if a prior run was killed (or a window is left
+        open) the new ``launch_persistent_context`` aborts *immediately* -- the
+        window flashes open and dies. We clear those leftovers first so a fresh run
+        always reclaims its own profile.
+      * WSL/sandbox crashes. Headed Chromium under WSLg routinely crashes on open
+        without ``--no-sandbox`` (no user namespaces) and ``--disable-dev-shm-usage``
+        (tiny ``/dev/shm`` -> renderer OOM). Both are inert on a healthy desktop and
+        the standard cure for an instantly-closing browser.
+    """
     SCRAPE_PROFILE.mkdir(parents=True, exist_ok=True)
+    for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        with contextlib.suppress(OSError):
+            (SCRAPE_PROFILE / lock).unlink(missing_ok=True)
     return cast("BrowserContext", p.chromium.launch_persistent_context(
         user_data_dir=str(SCRAPE_PROFILE),
         headless=headless,
         viewport={"width": 1500, "height": 1000},
-        args=["--disable-blink-features=AutomationControlled"],
+        args=["--disable-blink-features=AutomationControlled",
+              "--no-sandbox", "--disable-dev-shm-usage"],
     ))
 
 
