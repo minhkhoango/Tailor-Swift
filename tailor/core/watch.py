@@ -96,7 +96,9 @@ def _rebuild(stem: str, kind: str) -> None:
                 return
             with _state_lock:
                 _machine_tex_hash[stem] = _sha(tex)
-            pdf_compile.compile_tex(tex, RESUME_JOBNAME, 2)
+            if not pdf_compile.compile_tex(tex, RESUME_JOBNAME, 2):
+                print(f"[watch] {stem}: tex FAILED to compile -- slots final NOT captured", flush=True)
+                return
             capture_human_final(stem, out_dir / SLOTS_NAME, "slots")
             print(f"[watch] {stem}: rebuilt PDF from slots + captured slots final", flush=True)
         else:  # kind == "resume": hand-edited tex is the source of truth
@@ -105,7 +107,9 @@ def _rebuild(stem: str, kind: str) -> None:
             if machine is not None and _sha(tex) == machine:
                 return  # our own assemble write, not a human edit -- ignore
             print(f"[watch] {stem}: {RESUME_TEX} saved -> compile tex as-is...", flush=True)
-            pdf_compile.compile_tex(tex, RESUME_JOBNAME, 2)
+            if not pdf_compile.compile_tex(tex, RESUME_JOBNAME, 2):
+                print(f"[watch] {stem}: tex FAILED to compile -- tex final NOT captured", flush=True)
+                return
             capture_human_final(stem, tex, "resume")
             print(f"[watch] {stem}: rebuilt PDF from tex + captured tex final", flush=True)
 

@@ -191,14 +191,7 @@ def parse_slots(raw: object) -> Slots:
 
 def load_slots(company: str) -> Slots:
     """Load + structurally validate ``output/<company>/resume.slots.json``."""
-    path = _slots_path(company)
-    if not path.exists():
-        raise SlotsError(f"missing slot file: {path}")
-    try:
-        data: object = json.loads(path.read_text(encoding="utf-8"))
-    except ValueError as e:
-        raise SlotsError(f"slot file is not valid JSON: {e}")
-    return parse_slots(data)
+    return load_slots_from(_slots_path(company))
 
 
 # --------------------------------------------------------------------------- #
