@@ -14,11 +14,12 @@ from tailor.core.assemble_resume import SlotsError
 
 class Parse(unittest.TestCase):
     def test_full_shape(self) -> None:
-        got = A.parse_slots({
+        raw: dict[str, object] = {
             "experiences": [{"key": "ioe", "bullets": [{"id": 2}, {"text": "x"}]}],
             "projects": [{"key": "lens", "emph": "A, B", "bullets": []}],
             "skills": [["Languages", "Python"]],
-        })
+        }
+        got = A.parse_slots(raw)
         self.assertEqual(got.experiences[0].key, "ioe")
         self.assertEqual(got.experiences[0].bullets[0].id, 2)
         self.assertIsNone(got.experiences[0].bullets[0].text)
@@ -33,15 +34,17 @@ class Parse(unittest.TestCase):
         self.assertEqual(got.skills, [])
 
     def test_selected_keys_order(self) -> None:
-        got = A.parse_slots({
+        raw: dict[str, object] = {
             "experiences": [{"key": "ioe", "bullets": []}, {"key": "fpt", "bullets": []}],
             "projects": [{"key": "lens", "bullets": []}],
-        })
+        }
+        got = A.parse_slots(raw)
         self.assertEqual(got.selected_keys, ["ioe", "fpt", "lens"])
 
     def test_bullet_needs_exactly_one_of_id_text(self) -> None:
+        neither: dict[str, object] = {"experiences": [{"key": "ioe", "bullets": [{}]}]}
         with self.assertRaises(SlotsError):
-            A.parse_slots({"experiences": [{"key": "ioe", "bullets": [{}]}]})
+            A.parse_slots(neither)
         with self.assertRaises(SlotsError):
             A.parse_slots({"experiences": [{"key": "ioe", "bullets": [{"id": 1, "text": "x"}]}]})
 
@@ -50,8 +53,9 @@ class Parse(unittest.TestCase):
             A.parse_slots({"experiences": [{"key": "ioe", "bullets": [{"id": "two"}]}]})
 
     def test_missing_key_raises(self) -> None:
+        no_key: dict[str, object] = {"experiences": [{"bullets": []}]}
         with self.assertRaises(SlotsError):
-            A.parse_slots({"experiences": [{"bullets": []}]})
+            A.parse_slots(no_key)
 
     def test_skill_row_must_be_pair(self) -> None:
         with self.assertRaises(SlotsError):

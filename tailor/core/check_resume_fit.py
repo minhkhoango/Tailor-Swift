@@ -36,7 +36,7 @@ import sys
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 # Shared tex parsing lives in tex_parse (the single home for LaTeX parsing).
 from .tex_parse import (  # noqa: E402
@@ -460,7 +460,24 @@ def format_report(r: FitReport) -> str:
     return "\n".join(lines)
 
 
-def report_to_dict(r: FitReport) -> dict[str, Any]:
+class FitDict(TypedDict):
+    """Machine-readable :class:`FitReport` (what ``report_to_dict`` emits).
+
+    The pipeline branches on ``ok`` / ``verdict`` / ``fullness`` and reads the
+    human ``text``; ``report`` is the full ``asdict`` snapshot (heterogeneous by
+    nature, so its values stay ``object``)."""
+    company: str
+    verdict: str
+    ok: bool
+    page_count: int
+    fullness: Optional[float]
+    spillover_flags: int
+    notes: list[str]
+    report: dict[str, object]
+    text: str
+
+
+def report_to_dict(r: FitReport) -> FitDict:
     """Serialize a FitReport for machine consumers (the /tailor pipeline).
 
     Carries the full structured report (``asdict``), the verdict, the headline

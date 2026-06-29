@@ -16,7 +16,6 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from typing import Any
 
 from .core.paths import LOGS
 
@@ -44,14 +43,14 @@ class RunLogger:
         self.path = path
         self._fh = path.open("a", encoding="utf-8")
 
-    def event(self, event: str, **fields: Any) -> None:
+    def event(self, event: str, **fields: object) -> None:
         record = {"ts": datetime.datetime.now().isoformat(timespec="seconds"),
                   "event": event, **fields}
         self._fh.write(json.dumps(record, default=str) + "\n")
         self._fh.flush()
         print(self._echo(event, fields))
 
-    def _echo(self, event: str, fields: dict[str, Any]) -> str:
+    def _echo(self, event: str, fields: dict[str, object]) -> str:
         tmpl = _ECHO.get(event)
         if tmpl is None:
             extra = " ".join(f"{k}={v}" for k, v in fields.items())

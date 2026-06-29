@@ -59,7 +59,7 @@ class Numbers(unittest.TestCase):
 class SkillRows(unittest.TestCase):
     def test_master_first_two_categories(self) -> None:
         rows = T.extract_skill_rows(MASTER)
-        self.assertEqual([c for c, _ in rows][:2], ["Languages", "AI/ML"])
+        self.assertEqual([c for c, _ in rows][:2], ["Languages", "Frameworks"])
 
 
 class ParseMaster(unittest.TestCase):

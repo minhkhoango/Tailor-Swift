@@ -2,7 +2,7 @@
 """The tailor orchestrator: a thin program over the deterministic core.
 
 Replaces the Claude Code agent that used to drive /tailor. ``run()`` holds all
-batch logic (glob, skip-existing, the per-JD cap-3 fix-up loop, ship/abort); the
+batch logic (glob, skip-existing, the per-JD capped fix-up loop, ship/abort); the
 CLI and any future cron both call it -- no duplicated fan-out, no stdout parsing.
 Tests call ``run()`` / ``tailor_one()`` with two injected seams -- a fake ``llm``
 (a queue of canned ``Slots``/``Why``) and a fake ``chain`` (canned ``Report``s) --
@@ -19,18 +19,19 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Callable, Protocol
 
+from .core.assemble_resume import SlotsData
 from .core.capture import capture_ai_baseline, is_frozen
 from .core.chain import Report, run_chain
 from .core.paths import JOBDESC, OUTPUT, RESUME_JOBNAME, SCRATCH, SLOTS_NAME
 from .llm import Slots, Why, slots_to_data
 from .log import RunLogger, new_logger
 
-MAX_PASSES = 3
+MAX_PASSES = 2
 
 # A chain is anything with run_chain's shape; tests pass a fake returning Reports.
-Chain = Callable[[str, dict[str, Any], Path], Report]
+Chain = Callable[[str, SlotsData, Path], Report]
 
 
 class Session(Protocol):
@@ -43,7 +44,7 @@ class LLM(Protocol):
 
 
 # --------------------------------------------------------------------------- #
-# Per-JD tailoring (the cap-3 fix-up loop)
+# Per-JD tailoring (the capped fix-up loop)
 # --------------------------------------------------------------------------- #
 def _log_pass(log: RunLogger, stem: str, n: int,
               usage: dict[str, int], report: Report) -> None:

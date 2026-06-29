@@ -12,6 +12,9 @@ __pycache__/
 .tailor_cache/
 # per-run JSONL logs
 logs/
+# debug prompt dumps (getPrompt.py / any future debug_dump)
+sendPrompt*.txt
+receivePrompt*.txt
 
 # LaTeX build artifacts
 *.aux
@@ -52,3 +55,4 @@ dataset/
 
 # Secrets
 .env
+

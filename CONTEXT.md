@@ -74,8 +74,9 @@ match. Never sacrifice a fact to fill the page or to hit a JD keyword.
   assemble labels are **exact golden-`.tex`** (pure text). Distinct from `dataset/` (frozen
   benchmark pairs) and `assets/` (the pool); fixtures are disposable test inputs.
 - **Honesty check** — the one *deterministic* audit the chain runs: number-traceability
-  (every output number traces to a *selected* block). Everything else is the model's checklist
-  in `references/honesty-rules.md` — see that file; it is not restated here or in code.
+  (every output number traces to a *selected* block). Everything else is the model's checklist —
+  the global golden rules folded into `SYSTEM_PROMPT`; it is not restated in code or in per-block
+  master notes.
 - **Uncovered must-have** — a JD requirement no honest pool block can cover. It is surfaced
   (the slot's `uncovered` list), never papered over. This is what changes whether Khoa hits
   "submit".
@@ -88,7 +89,8 @@ scrape-jobs ──▶ jobDescription/<stem>.txt ──▶ python -m tailor ─�
 ```
 
 Per JD, the program holds one stateful model conversation (the cached prefix — system prompt
-+ digest + honesty-rules + keywords — stays prompt-cached across JDs and turns):
++ digest, the digest carrying the keyword ledger + ALLOWED skill palette from the
+master — stays prompt-cached across JDs and turns):
 
 1. **Analyze + select** — one model turn returns a `Slots` object (structured output,
    schema-enforced): both experiences, ~3 projects, bullets by id or light reword, skills
@@ -96,7 +98,7 @@ Per JD, the program holds one stateful model conversation (the cached prefix —
 2. **Run the chain** — code assembles → compiles → fit-checks → honesty-checks in the scratch
    dir and builds one combined report.
 3. **React** — the report is fed back as the next user turn; the model returns revised slots.
-   Loop up to **3 passes** until `OK` + `honesty: clean`.
+   Loop up to **2 passes** until `OK` + `honesty: clean`.
 4. **Ship or abort** — an accepted resume (incl. an accepted `UNDERFULL`) ships to
    `output/<stem>/` and snapshots the AI baseline. If honesty never clears within the cap,
    **nothing ships**: the JD aborts, the scratch dir is kept, the abort is logged loudly.
@@ -151,8 +153,12 @@ analytics need no separate ledger: `jq 'select(.event=="jd_done" and .verdict!="
   the assembler both go through it.
 - **`llm.py` is the only module that talks to the model.** It owns the `Slots`/`Why` schemas,
   the `SYSTEM_PROMPT` brain, the cached prefix, and the one web-search `why` call.
-- **Honesty rules have one home** — `references/honesty-rules.md`, loaded verbatim into the
-  model's cached prefix at runtime. CONTEXT points to it; nothing restates the list in code.
+- **The keyword ledger has one home** — `assets/master_resume.tex`: the `% KEYWORD LEDGER`
+  comment block plus the `\section{Technical Skills}` rows the digest mirrors as the ALLOWED
+  palette (edit a skill in ONE place — the Technical Skills row). The digest surfaces it into the
+  cached prefix at runtime; global honesty rules are folded into `SYSTEM_PROMPT`. `references/`
+  is gone, and so are the per-block `% HONESTY:` notes — honesty rides the deterministic
+  number-trace check plus the golden rules; nothing restates the lists in code.
 - **Dataset pairs are frozen.** Once a company has a `dataset/<stem>/resume.ai.slots.json`, the
   AI baseline is never overwritten, so the AI-vs-human benchmark pair stays intact. (The
   benchmark format changed from `.tex` to `.slots.json` — see Why notes.)
@@ -173,10 +179,9 @@ analytics need no separate ledger: `jq 'select(.event=="jd_done" and .verdict!="
 ## Where things live
 
 ```
-assets/master_resume.tex       THE pool — the source of truth
-references/honesty-rules.md     the honesty checklist (loaded into the model's prompt)
-references/keywords.md          the ALLOWED/FORBIDDEN keyword ledger (also in the prompt)
-references/cover-letter.md      retained only for the verifiable-number bar the why-prompt mines
+assets/master_resume.tex       THE pool + \section{Technical Skills} + % KEYWORD LEDGER (the
+                               digest mirrors skills as the ALLOWED palette; no references/, no
+                               per-block honesty notes)
 jobDescription/<stem>.txt       JD input (from /scrape-jobs or dropped in by hand; gitignored)
 output/<stem>/                  per-stem: resume.slots.json → resume.tex → resume.pdf (+ why_company.md)
 dataset/<stem>/                 frozen AI-baseline + human-final slot benchmark pairs

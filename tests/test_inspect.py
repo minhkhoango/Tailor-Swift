@@ -40,7 +40,8 @@ from tailor.core.assemble_resume import (
     stack_items,
 )
 from tailor.core.chain import honesty_flags, run_chain
-from tailor.core.paths import KEYWORDS
+from tailor.core.paths import MASTER
+from tailor.digest import forbidden_terms
 
 # Mark every test in this module as `inspect` so `pytest -m "not inspect"` skips it.
 pytestmark = pytest.mark.inspect
@@ -63,23 +64,8 @@ def discover_inputs() -> list[tuple[str, Path]]:
 
 
 def _forbidden_terms() -> list[str]:
-    """Parse the FORBIDDEN section of keywords.md into a flat advisory term list."""
-    text = KEYWORDS.read_text(encoding="utf-8")
-    after = text.split("## FORBIDDEN", 1)
-    if len(after) < 2:
-        return []
-    terms: list[str] = []
-    for line in after[1].splitlines():
-        line = line.strip()
-        if not line.startswith("- "):
-            continue
-        body = re.sub(r"\*\*[^*]+:\*\*", "", line[2:])      # drop the "**Label:**"
-        body = re.split(r"\(", body)[0]                      # drop parentheticals
-        for tok in re.split(r"[,.]", body):
-            tok = tok.strip().strip("*").strip()
-            if len(tok) >= 2 and tok.lower() not in {"if", "off-limits", "until then"}:
-                terms.append(tok)
-    return terms
+    """FORBIDDEN tech terms, now sourced from the master's % KEYWORD LEDGER block."""
+    return forbidden_terms(MASTER.read_text(encoding="utf-8"))
 
 
 def _bullet_report(slots: Slots) -> list[str]:

@@ -15,7 +15,7 @@ then packs them into exactly one full page.
 
 The core rule: **wording barely moves, facts never move.** Every number, date, and
 technology traces 1:1 back to your master resume. Nothing gets invented. Honesty is the
-hard gate: if a draft can't be made honest within 3 passes, **nothing ships**.
+hard gate: if a draft can't be made honest within 2 passes, **nothing ships**.
 
 ## How you use it
 
@@ -33,7 +33,7 @@ hard gate: if a draft can't be made honest within 3 passes, **nothing ships**.
 
    It reads the job, selects the best-fitting projects and bullets, assembles the LaTeX,
    compiles the PDF, checks it fills exactly one page, and runs a number-traceability
-   **honesty check** — looping up to 3 passes — then ships `output/<stem>/resume.slots.json`
+   **honesty check** — looping up to 2 passes — then ships `output/<stem>/resume.slots.json`
    + `Khoa_Ngo_resume.pdf`.
 
 3. **`why` is separate and apply-time.** The scraper pulls many JDs; you apply to few. When
@@ -61,8 +61,8 @@ dataset/<stem>/             frozen AI-baseline / human-final slot pairs (benchma
 .tailor_cache/<stem>/       scratch for in-flight passes (gitignored; kept on abort)
 logs/tailor-<ts>.jsonl      one JSON event per action per run (gitignored)
 tailor/                     the program — orchestrator + llm + core/ (assemble, fit, compile, …)
-assets/master_resume.tex    your single source of truth (the pool everything is selected from)
-references/                 honesty-rules.md + keywords.md (loaded into the model's prompt)
+assets/master_resume.tex    single source of truth: the pool + \section{Technical Skills} +
+                            the % KEYWORD LEDGER block (the digest surfaces these into the prompt)
 build_resume.py             standalone helper to rebuild resume PDFs by hand
 ```
 

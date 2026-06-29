@@ -15,11 +15,11 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Any
 from unittest import mock
 
 import _helpers  # noqa: F401  (path setup)
 from tailor.core import capture as C
+from tailor.core.assemble_resume import SlotsData
 
 
 class Capture(unittest.TestCase):
@@ -41,8 +41,9 @@ class Capture(unittest.TestCase):
             p.stop()
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def _slots(self) -> dict[str, Any]:
-        return {"company": "acme", "experiences": [], "projects": [], "skills": []}
+    def _slots(self, company: str = "acme") -> SlotsData:
+        return {"company": company, "experiences": [], "projects": [],
+                "skills": [], "uncovered": []}
 
     # -- is_frozen --------------------------------------------------------- #
     def test_not_frozen_when_no_baseline(self) -> None:
@@ -68,7 +69,7 @@ class Capture(unittest.TestCase):
         assert first is not None
         first.write_text('{"company": "ORIGINAL"}', encoding="utf-8")
         # A second capture must NOT clobber the frozen baseline.
-        second = C.capture_ai_baseline("acme", {"company": "CHANGED"})
+        second = C.capture_ai_baseline("acme", self._slots("CHANGED"))
         self.assertIsNone(second)
         self.assertEqual(json.loads(first.read_text(encoding="utf-8"))["company"], "ORIGINAL")
 
@@ -81,17 +82,46 @@ class Capture(unittest.TestCase):
     def test_human_final_snapshots_output_slot(self) -> None:
         src = self.root / "resume.slots.json"
         src.write_text('{"company": "edited"}', encoding="utf-8")
-        dest = C.capture_human_final("acme", src)
-        self.assertEqual(dest, self.dataset / "acme" / C.HUMAN_FINAL)
+        dest = C.capture_human_final("acme", src, "slots")
+        self.assertEqual(dest, self.dataset / "acme" / C.HUMAN_FINAL_SLOTS)
         self.assertEqual(json.loads(dest.read_text(encoding="utf-8"))["company"], "edited")
 
     def test_human_final_last_write_wins(self) -> None:
         src = self.root / "resume.slots.json"
         src.write_text('{"company": "v1"}', encoding="utf-8")
-        C.capture_human_final("acme", src)
+        C.capture_human_final("acme", src, "slots")
         src.write_text('{"company": "v2"}', encoding="utf-8")
-        dest = C.capture_human_final("acme", src)
+        dest = C.capture_human_final("acme", src, "slots")
         self.assertEqual(json.loads(dest.read_text(encoding="utf-8"))["company"], "v2")
+
+    def test_human_final_snapshots_output_tex(self) -> None:
+        src = self.root / "resume.tex"
+        src.write_text("\\documentclass{article}", encoding="utf-8")
+        dest = C.capture_human_final("acme", src, "resume")
+        self.assertEqual(dest, self.dataset / "acme" / C.HUMAN_FINAL_TEX)
+        self.assertEqual(dest.read_text(encoding="utf-8"), "\\documentclass{article}")
+
+    def test_capturing_tex_drops_stale_slots_final(self) -> None:
+        slots = self.root / "resume.slots.json"
+        slots.write_text('{"company": "v1"}', encoding="utf-8")
+        C.capture_human_final("acme", slots, "slots")
+        tex = self.root / "resume.tex"
+        tex.write_text("\\documentclass{article}", encoding="utf-8")
+        C.capture_human_final("acme", tex, "resume")
+        # Latest save was tex -> only the tex final survives.
+        self.assertTrue((self.dataset / "acme" / C.HUMAN_FINAL_TEX).exists())
+        self.assertFalse((self.dataset / "acme" / C.HUMAN_FINAL_SLOTS).exists())
+
+    def test_capturing_slots_drops_stale_tex_final(self) -> None:
+        tex = self.root / "resume.tex"
+        tex.write_text("\\documentclass{article}", encoding="utf-8")
+        C.capture_human_final("acme", tex, "resume")
+        slots = self.root / "resume.slots.json"
+        slots.write_text('{"company": "v1"}', encoding="utf-8")
+        C.capture_human_final("acme", slots, "slots")
+        # Latest save was slots -> only the slots final survives.
+        self.assertTrue((self.dataset / "acme" / C.HUMAN_FINAL_SLOTS).exists())
+        self.assertFalse((self.dataset / "acme" / C.HUMAN_FINAL_TEX).exists())
 
 
 if __name__ == "__main__":

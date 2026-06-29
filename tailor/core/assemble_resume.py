@@ -37,7 +37,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import NotRequired, TypedDict, cast
 
 from . import tex_parse
 from .tex_parse import Block, match_braces
@@ -49,6 +49,33 @@ from .paths import MASTER, OUTPUT, REPO_ROOT, RESUME_TEX, SLOTS_NAME
 # --------------------------------------------------------------------------- #
 class SlotsError(Exception):
     """Raised when the slot file is missing, unparseable, or structurally wrong."""
+
+
+# The wire shape of a slot file: what ``slots_to_data`` (llm.py) emits and what
+# the deterministic core threads around (chain / capture). It is the typed mirror
+# of the dataclass ``Slots`` below; ``parse_slots`` validates arbitrary decoded
+# JSON (typed ``object``) back into that dataclass.
+class BulletData(TypedDict, total=False):
+    """One bullet pick: exactly one of ``id`` (verbatim) XOR ``text`` (reword)."""
+    id: int
+    text: str
+
+
+class BlockData(TypedDict):
+    """One chosen experience/project: master ``key`` + bullet picks (+ optional emph)."""
+    key: str
+    bullets: list[BulletData]
+    emph: NotRequired[str]
+
+
+class SlotsData(TypedDict):
+    """The full slot deliverable as plain JSON-able data (``company``/``uncovered``
+    ride along; the assembler ignores them)."""
+    company: str
+    experiences: list[BlockData]
+    projects: list[BlockData]
+    skills: list[list[str]]
+    uncovered: list[str]
 
 
 @dataclass(frozen=True)
@@ -95,33 +122,33 @@ def load_slots_from(path: Path) -> Slots:
     if not path.exists():
         raise SlotsError(f"missing slot file: {path}")
     try:
-        data: Any = json.loads(path.read_text(encoding="utf-8"))
+        data: object = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as e:
         raise SlotsError(f"slot file is not valid JSON: {e}")
     return parse_slots(data)
 
 
-def _bullet(raw: Any, where: str) -> BulletSpec:
+def _bullet(raw: object, where: str) -> BulletSpec:
     if not isinstance(raw, dict):
         raise SlotsError(f"{where}: each bullet must be an object, got {type(raw).__name__}")
-    d = cast("dict[str, Any]", raw)
+    d = cast("dict[str, object]", raw)
     has_id = "id" in d
     has_text = "text" in d
     if has_id == has_text:  # neither, or both
         raise SlotsError(f"{where}: each bullet needs exactly one of 'id' or 'text'")
     if has_id:
         try:
-            return BulletSpec(id=int(d["id"]))
+            return BulletSpec(id=int(cast("str | int | float", d["id"])))
         except (TypeError, ValueError):
             raise SlotsError(f"{where}: bullet 'id' must be an integer, got {d['id']!r}")
     return BulletSpec(text=str(d["text"]))
 
 
-def _entry_spec(raw: Any, kind: str, idx: int) -> EntrySpec:
+def _entry_spec(raw: object, kind: str, idx: int) -> EntrySpec:
     where = f"{kind}[{idx}]"
     if not isinstance(raw, dict):
         raise SlotsError(f"{where}: must be an object, got {type(raw).__name__}")
-    d = cast("dict[str, Any]", raw)
+    d = cast("dict[str, object]", raw)
     key = d.get("key")
     if not isinstance(key, str) or not key:
         raise SlotsError(f"{where}: missing string 'key'")
@@ -129,35 +156,35 @@ def _entry_spec(raw: Any, kind: str, idx: int) -> EntrySpec:
     if not isinstance(bullets_raw, list):
         raise SlotsError(f"{where}: 'bullets' must be a list")
     bullets = [_bullet(b, f"{where}.bullets[{j}]")
-               for j, b in enumerate(cast("list[Any]", bullets_raw))]
+               for j, b in enumerate(cast("list[object]", bullets_raw))]
     emph_raw = d.get("emph")
     emph = str(emph_raw) if emph_raw is not None else None
     return EntrySpec(key=key, bullets=bullets, emph=emph)
 
 
-def _skill_rows(raw: Any) -> list[tuple[str, str]]:
+def _skill_rows(raw: object) -> list[tuple[str, str]]:
     if not isinstance(raw, list):
         raise SlotsError("'skills' must be a list of [category, content] rows")
     rows: list[tuple[str, str]] = []
-    for i, row in enumerate(cast("list[Any]", raw)):
-        if not isinstance(row, (list, tuple)) or len(cast("list[Any]", row)) != 2:
+    for i, row in enumerate(cast("list[object]", raw)):
+        if not isinstance(row, (list, tuple)) or len(cast("list[object]", row)) != 2:
             raise SlotsError(f"skills[{i}] must be a [category, content] pair, got {row!r}")
-        cat, content = cast("list[Any]", row)
+        cat, content = cast("list[object]", row)
         rows.append((str(cat), str(content)))
     return rows
 
 
-def parse_slots(raw: Any) -> Slots:
+def parse_slots(raw: object) -> Slots:
     """Validate a decoded slot object's STRUCTURE and return a typed ``Slots``."""
     if not isinstance(raw, dict):
         raise SlotsError(f"slot file must be a JSON object, got {type(raw).__name__}")
-    d = cast("dict[str, Any]", raw)
+    d = cast("dict[str, object]", raw)
     exp_raw = d.get("experiences", [])
     prj_raw = d.get("projects", [])
     if not isinstance(exp_raw, list) or not isinstance(prj_raw, list):
         raise SlotsError("'experiences' and 'projects' must be lists")
-    experiences = [_entry_spec(e, "experiences", i) for i, e in enumerate(cast("list[Any]", exp_raw))]
-    projects = [_entry_spec(p, "projects", i) for i, p in enumerate(cast("list[Any]", prj_raw))]
+    experiences = [_entry_spec(e, "experiences", i) for i, e in enumerate(cast("list[object]", exp_raw))]
+    projects = [_entry_spec(p, "projects", i) for i, p in enumerate(cast("list[object]", prj_raw))]
     skills = _skill_rows(d.get("skills", []))
     return Slots(experiences, projects, skills)
 
@@ -168,7 +195,7 @@ def load_slots(company: str) -> Slots:
     if not path.exists():
         raise SlotsError(f"missing slot file: {path}")
     try:
-        data: Any = json.loads(path.read_text(encoding="utf-8"))
+        data: object = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as e:
         raise SlotsError(f"slot file is not valid JSON: {e}")
     return parse_slots(data)

@@ -9,26 +9,39 @@ This is the only module that talks to the model. It owns:
   * :data:`SYSTEM_PROMPT` -- the brain lifted from the old SKILL.md (golden rules,
     slot schema, the fit/honesty reaction table, what a JD keyword is). It is a
     plain string (the schema example has ``{}`` braces, so NOT an f-string),
-  * the cached prefix (system prompt + pool digest + honesty-rules + keywords),
+  * the cached prefix (system prompt + pool digest, the digest carrying the
+    keyword ledger + skill palette from master_resume.tex),
     byte-stable across JDs so it prompt-caches (verify ``cache_read > 0``),
   * the stateful multi-turn tailor loop (:class:`SlotSession`) and the one
     web-search :meth:`LLMClient.why` call.
 
-The honesty rules have one home (``references/honesty-rules.md``); the prompt
-carries it at runtime -- no third copy here.
+The keyword ledger has one home: ``assets/master_resume.tex`` (the ``% KEYWORD
+LEDGER`` block plus the ``\\section{Technical Skills}`` rows the digest mirrors as
+the ALLOWED palette). Honesty is enforced here -- the golden rules plus the
+deterministic number-traceability check in the fit/honesty report -- not by
+per-block master notes.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict
 
-from .core.paths import HONESTY_RULES, KEYWORDS
+if TYPE_CHECKING:
+    from anthropic import Anthropic
+    from anthropic.types import (
+        Message,
+        MessageParam,
+        TextBlockParam,
+        ToolUnionParam,
+    )
+
+from .core.assemble_resume import BlockData, BulletData, SlotsData
 from .digest import build_digest
 
-MODEL = "claude-opus-4-8"               # project memory: /tailor runs Opus 4.8
+MODEL = "claude-sonnet-4-6"               # slot-loop model: cheap SELECT + light reword
 WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search"}
 
 
@@ -87,15 +100,18 @@ class Why(BaseModel):
     why_company: str                   # the 2-3 sentence paragraph (or TODO placeholder)
 
 
-def slots_to_data(slots: Slots) -> dict[str, Any]:
+def slots_to_data(slots: Slots) -> SlotsData:
     """Pydantic ``Slots`` -> the plain dict the deterministic core consumes.
 
     Bullet objects serialize to exactly ``{"id": n}`` or ``{"text": "..."}`` -- the
     closed-pool / verbatim contract the assembler validates. ``company`` and
     ``uncovered`` ride along; the assembler ignores them.
     """
-    def block(b: SlotBlock) -> dict[str, Any]:
-        d: dict[str, Any] = {"key": b.key, "bullets": [x.model_dump() for x in b.bullets]}
+    def bullet(x: Bullet) -> BulletData:
+        return {"id": x.id} if isinstance(x, IdBullet) else {"text": x.text}
+
+    def block(b: SlotBlock) -> BlockData:
+        d: BlockData = {"key": b.key, "bullets": [bullet(x) for x in b.bullets]}
         if b.emph:
             d["emph"] = b.emph
         return d
@@ -112,6 +128,10 @@ def slots_to_data(slots: Slots) -> dict[str, Any]:
 # The system prompt (brain, trimmed from SKILL.md). Plain string -- has {} braces.
 # --------------------------------------------------------------------------- #
 SYSTEM_PROMPT = """\
+You are an expert resume tailor for computer engineering undergrad students 
+chasing tech internships in the USA. You know ATS keyword matching and what 
+recruiters skim for.
+
 You tailor Khoa's master resume into a packed, honest, 1-page company-specific
 resume by SELECTING from one closed pool and LIGHTLY rewording for the job's
 keywords. Facts are locked; wording barely moves.
@@ -120,11 +140,14 @@ keywords. Facts are locked; wording barely moves.
 1. SELECT, don't rewrite. Pick whole projects and keep their bullets faithful --
    swap in an exact JD keyword or lightly rephrase, nothing more. Never
    heavy-rewrite or shorten a bullet.
-2. PACK THE PAGE. The output is strictly 1 page, filled to 0.95-1.0. Empty space
-   at the bottom is the failure to avoid.
+2. FILL ~1 PAGE, DON'T PAD. Output is 1 page. Both experiences (all bullets) and
+   ~3 projects always go in. Never invent filler skills to plug whitespace -- an
+   underfull page beats a junk skill like "Data Analysis" or "Machine Learning".
 3. HONESTY IS ABSOLUTE. Every number/date/tech/company traces 1:1 to a SELECTED
-   master block. The pool is closed -- never invent a project. When honesty and
-   fullness conflict, honesty wins; when fullness and keyword-match conflict,
+   master block. The pool is closed -- never invent a project, number, or tech.
+   Never relabel a block's category (a Random Forest is not a "ranking model"
+   because the JD says ranking). Never put "RAG" on the page. When honesty and
+   anything else conflict, honesty wins; when fullness and keyword-match conflict,
    fullness wins.
 
 ## What you return (structured output -- enforced)
@@ -137,11 +160,13 @@ A `Slots` object:
   the numbering in the POOL digest) -- OR `{"text": "..."}` a light reword. Prefer
   ids: byte-identical bullets are honesty-safe. A `text` reword may add at most ~4
   words over its source; when unsure a fact survives, use the id.
-- `emph` (projects only): the 3 most JD-relevant techs for that project's heading
-  (hard cap 3). Omit to keep the master default.
-- `skills`: up to 5 `{category, content}` rows rebuilt per JD. Pack each row full
-  with JD-relevant ALLOWED keywords until the next term would wrap; never repeat a
-  keyword across rows; never pull from FORBIDDEN.
+- `emph` (projects only): pick <=3 techs from THAT block's heading default tech
+  stack (the honest set for that block). Omit to keep the default.
+- `skills`: up to 5 `{category, content}` rows rebuilt per JD. Concrete tech first
+  (exact ATS strings from the ledger ALLOWED); add a soft/domain term only if the
+  JD repeats it, hard cap 1-2 total, never a row of pure domain words. Pack each
+  row until the next term would wrap; never repeat a keyword across rows; never
+  pull from FORBIDDEN; don't pad rows just to fill space.
 - `uncovered`: JD must-haves no honest pool block can cover. List them -- this is
   what changes whether Khoa hits "submit". Never invent a project to cover one.
 
@@ -156,40 +181,35 @@ an `uncovered` must-have, never a mirrored keyword.
 After you return slots, code assembles -> compiles -> measures fit -> runs the
 number-traceability honesty check, and returns one report as the next user turn.
 React by returning a revised `Slots`:
-- UNDERFULL (<0.95): add a whole JD-relevant project, or one more faithful pool
-  bullet. Never pad a bullet (a reword >4 words past source is rejected). Once all
-  bullets + both experiences + 5 skill rows are in and it is still under, that is
-  acceptable -- return the same slots to accept.
-- SPILLOVER / a FLAG bullet: its last wrapped line is short; lightly reword so it
-  fills. Never cut a number fact.
-- OVERFULL / MULTIPAGE: drop the lowest-JD-scoring project.
-- WRAP on a skill row: prune its lowest-signal entries to one line.
-- structure: WARN: the slot has a project count other than 3 -- add or drop one.
+- SPILLOVER / a FLAG bullet: its last wrapped line is short and wraps awkwardly;
+  lightly reword so it fills the line. Never cut a number fact, never pad past ~4
+  words over the source.
+- WRAP on a skill row: prune its lowest-signal entries back to one line.
 - honesty: FLAGS [...]: a number on the page does not trace to a selected master
   block. Fix it (you likely reworded in a stray number, or selected the wrong
   block). honesty MUST end clean.
 - ERROR: assemble/compile failed -- read the message and fix the offending slot.
-- OK + honesty: clean: you are done; return the same slots.
+- Anything else (incl. an UNDERFULL page, or OK): return the SAME slots to accept.
+  An underfull page is fine -- never invent a filler skill or project to plug it.
 
-The POOL digest, honesty rules, and keyword ledger follow.
+The POOL digest and keyword ledger (from the master) follow.
 """
 
 
-def system_blocks() -> list[dict[str, Any]]:
-    """The cached prefix: prompt + digest + honesty-rules + keywords.
+def system_blocks() -> list[dict[str, object]]:
+    """The cached prefix: prompt + digest (the digest carries the keyword ledger +
+    ALLOWED skill palette, both from master_resume.tex).
 
     Byte-stable across JDs -> prompt-cached. ``cache_control`` on the LAST block
     caches the whole system prefix (prefix match); it re-warms automatically when
-    the master/rules/keywords change. The per-JD text goes in the user turn, never
-    here, so it never invalidates the cache.
+    the master changes. The per-JD text goes in the user turn, never here, so it
+    never invalidates the cache.
     """
     parts = [
         SYSTEM_PROMPT,
         build_digest(),
-        "# HONESTY RULES (honesty-rules.md)\n" + HONESTY_RULES.read_text(encoding="utf-8"),
-        "# KEYWORD LEDGER (keywords.md)\n" + KEYWORDS.read_text(encoding="utf-8"),
     ]
-    blocks: list[dict[str, Any]] = [{"type": "text", "text": p} for p in parts]
+    blocks: list[dict[str, object]] = [{"type": "text", "text": p} for p in parts]
     blocks[-1]["cache_control"] = {"type": "ephemeral"}
     return blocks
 
@@ -225,7 +245,7 @@ Research this company and return the JSON object.
 """
 
 
-def _usage(usage: Any) -> dict[str, int]:
+def _usage(usage: object) -> dict[str, int]:
     return {
         "in_tok": int(getattr(usage, "input_tokens", 0) or 0),
         "out_tok": int(getattr(usage, "output_tokens", 0) or 0),
@@ -234,8 +254,9 @@ def _usage(usage: Any) -> dict[str, int]:
     }
 
 
-def _final_text(resp: Any) -> str:
-    return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+def _final_text(resp: object) -> str:
+    content = getattr(resp, "content", [])
+    return "".join(b.text for b in content if getattr(b, "type", "") == "text")
 
 
 def _parse_why(text: str, stem: str, url_hint: str) -> Why:
@@ -258,30 +279,38 @@ def _parse_why(text: str, stem: str, url_hint: str) -> Why:
 # Client + session
 # --------------------------------------------------------------------------- #
 class SlotSession:
-    """One stateful slot conversation for a single JD (the cap-3 fix-up loop).
+    """One stateful slot conversation for a single JD (the capped fix-up loop).
 
     The stable prefix stays cached every turn; the model keeps its own reasoning
     continuity (its prior turns, incl. thinking blocks, are echoed back unchanged).
     """
 
-    def __init__(self, client: Any, system: list[dict[str, Any]]) -> None:
+    def __init__(self, client: Anthropic, system: list[dict[str, object]]) -> None:
         self._client = client
         self._system = system
-        self._messages: list[dict[str, Any]] = []
+        self._messages: list[dict[str, object]] = []
 
     def emit(self, user_text: str) -> tuple[Slots, dict[str, int]]:
         """Append a user turn (the JD, or a report), return the model's revised Slots."""
         self._messages.append({"role": "user", "content": user_text})
+        # `low` effort keeps the thinking budget small for this SELECT + light-reword
+        # task; `messages.parse` merges it with the enforced Slots format. We pass
+        # plain dicts and echo response blocks straight back as request content;
+        # cast names the param type each list satisfies at runtime.
         resp = self._client.messages.parse(
             model=MODEL,
             max_tokens=8000,
-            system=self._system,
+            system=cast("list[TextBlockParam]", self._system),
             thinking={"type": "adaptive"},
-            messages=self._messages,
+            output_config={"effort": "low"},
+            messages=cast("list[MessageParam]", self._messages),
             output_format=Slots,
         )
         self._messages.append({"role": "assistant", "content": resp.content})
-        return resp.parsed_output, _usage(resp.usage)
+        out = resp.parsed_output
+        if out is None:
+            raise RuntimeError("model returned no parsed Slots")
+        return out, _usage(resp.usage)
 
 
 class LLMClient:
@@ -289,10 +318,7 @@ class LLMClient:
 
     def __init__(self) -> None:
         import anthropic  # imported lazily so the fast test suite never constructs it
-        # Typed Any to match SlotSession: the SDK's server-tool / message TypedDicts
-        # don't cover web_search_20260209, and the loop already reads usage/content
-        # defensively via getattr -- so a plain-dict call site is the pragmatic shape.
-        self._client: Any = anthropic.Anthropic()
+        self._client = anthropic.Anthropic()
         self._system = system_blocks()
 
     def session(self) -> SlotSession:
@@ -300,19 +326,21 @@ class LLMClient:
 
     def why(self, stem: str, jd_text: str, url_hint: str) -> tuple[Why, dict[str, int]]:
         """One web-search call (the model searches iteratively inside it) -> Why."""
-        messages: list[dict[str, Any]] = [
+        messages: list[dict[str, object]] = [
             {"role": "user", "content": WHY_USER.format(stem=stem, url_hint=url_hint, jd=jd_text)}
         ]
         total = {"in_tok": 0, "out_tok": 0, "cache_read_tok": 0, "cache_creation_tok": 0}
-        resp: Any = None
+        resp: Message | None = None
         for _ in range(6):  # web_search may pause_turn; resume until it finishes
+            # web_search_20260209 isn't in the SDK's tool union; cast names the
+            # param type each arg satisfies at runtime (see WEB_SEARCH_TOOL).
             resp = self._client.messages.create(
                 model=MODEL,
                 max_tokens=4000,
                 system=WHY_SYSTEM,
                 thinking={"type": "adaptive"},
-                tools=[WEB_SEARCH_TOOL],
-                messages=messages,
+                tools=cast("list[ToolUnionParam]", [WEB_SEARCH_TOOL]),
+                messages=cast("list[MessageParam]", messages),
             )
             for k, v in _usage(resp.usage).items():
                 total[k] += v

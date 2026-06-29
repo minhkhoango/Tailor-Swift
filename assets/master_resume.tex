@@ -1,27 +1,14 @@
 %==============================================================================
-% master_resume.tex  --  INTERNAL SINGLE SOURCE OF TRUTH for the /tailor skill
-%
+% master_resume.tex  --  INTERNAL SINGLE SOURCE OF TRUTH
+
 % This is NOT a resume you hand out. It is the full pool: every project and
 % every experience with ALL of their bullets, plus per-project context kept as
 % comments. It compiles (so you can eyeball it; ~2 pages) but is intentionally
 % too long for one page and is tag/comment-laden.
-%
-% /tailor reads this file, SELECTS a subset (whole projects, not cherry-picked
-% bullets), LIGHTLY rewords for JD keywords, and writes a packed 1-page
-% output/<company>/resume.tex.  It does NOT heavy-rewrite or shorten bullets.
-%
+
 % LEAD BULLET rule: the FIRST \resumeItem in each project / experience block is
 % the "what this is" bullet -- it always leads and is always kept (a light
 % JD-vocabulary reword is fine). Remaining bullets are ordered relevance-first.
-%
-%   Keyword palette (ALLOWED / FORBIDDEN, by category):
-%     .claude/skills/tailor/references/keywords.md
-%   Honesty rules:
-%     .claude/skills/tailor/references/honesty-rules.md
-%
-% Every number / date / tech name below traces to the project's repo or to
-% Khoa's confirmed interview. Keep it that way.
-%==============================================================================
 
 %-------------------------
 % Resume in Latex
@@ -125,8 +112,6 @@
 \end{center}
 
 %-----------EDUCATION-----------
-% Verbatim every JD. Do not touch the coursework line. Honors Program is real
-% (confirmed) -- keep it. ICPC bullet includes "1st in Division 2".
 \section{Education}
   \resumeSubHeadingListStart
     \resumeSubheading
@@ -140,19 +125,13 @@
   \resumeSubHeadingListEnd
 
 %-----------EXPERIENCE-----------
-% Both entries are ALWAYS kept (never drop either). Heavy rewrite is banned --
-% light keyword reword only.
 \section{Experience}
   \resumeSubHeadingListStart
 
-    %=== INTERESTED OPPORTUNITY ENGINE (IOE) -- Nov 2025 ===
     % @key: ioe
-    % Repo: github.com/minhkhoango/Mastra-Voice-Gateway (PoC) | AI helper: GitHub Copilot
-    % Default \emph{} stack: Python, Vocode, FastAPI
-    % HONESTY: the Mastra agent + SQL + business logic pre-existed Khoa -- do NOT
-    %   claim the agent. Khoa owned the GATEWAY. Vocode + Twilio were the team's
-    %   choice; Deepgram + OpenAI were Vocode-documented integrations Khoa followed;
-    %   GPT-4o-mini was Khoa's own pick for cheapest/fastest testing (< $5).
+    % Repo: github.com/minhkhoango/Mastra-Voice-Gateway 
+    % TechStack: Python, Vocode, FastAPI, DeepGram, OpenAI API, Twilio, Azure Speech, GitHub Copilot
+    % PersonalNote: Owned the GateWay, Vocode + Twilio were the team's choice; Deepgram + OpenAI were Vocode-documented integrations; GPT-4o-mini picked for fastest+cheapest (<$5)
     \resumeSubheading
       {Software Engineer Intern \textnormal{$|$ \emph{Python, Vocode, FastAPI}}}{Nov 2025 -- Nov 2025}
       {Interested Opportunity Engine}{Tallahassee, FL (Remote)}
@@ -162,12 +141,9 @@
         \resumeItem{Delivered a working voice-gateway prototype that enabled the team to integrate their own Mastra agent; the company raised seed funding the following month}
       \resumeItemListEnd
 
-    %=== FPT TELECOM -- May 2025 -- Jul 2025 ===
     % @key: fpt
-    % AI helper: ChatGPT web UI
-    % HONESTY: Khoa built the 86% Random Forest. The 86->93% XGBoost was a
-    %   TEAMMATE's work -- NEVER claim it. No SQL at FPT (CSV-based), no DB,
-    %   no Airflow/cron.
+    % Repo: 
+    % TechStack: Python, Scikit-learn, Vnstock, Wbapi, Pandas, Numpy, Matplotlib, Seaborn, Jupyter, Cursor
     \resumeSubheading
       {Data Scientist Intern \textnormal{$|$ \emph{Python, scikit-learn, vnstock}}}{May 2025 -- Jul 2025}
       {FPT Telecom}{Hanoi, Vietnam}
@@ -185,12 +161,11 @@
 % cherry-pick bullets apart). Chronological, most recent first. Local Lens and
 \section{Projects}
   \resumeSubHeadingListStart
-    %=== TAILOR SWIFT -- May 2026 -- Present ===
+
     % @key: tailor_swift
-    % Repo: github.com/minhkhoango/Tailor-Swift | AI helper: Claude Code
-    % Default \emph{} stack: Python, Claude Code, LaTeX
-    % Other defensible stack: pdfplumber, pytest, pdflatex, PostToolUse hook, JSON
-    % Real number: Opus 4.8: 10,000 tokens, 20s, 30% accuracy per check. Python: 564 tokens (report), 0.26s, 100% accuracy
+    % Repo: github.com/minhkhoango/Tailor-Swift
+    % TechStack: Python, Claude API, Latex, Pydantic, Pdfplumber, Watchdog, Pytest, Argparse, Json
+    % PersonalNote: These bullets are deprecated, though old numbers: Opus 4.8: 10,000 tokens, 20s, 30% accuracy per check. Python: 564 tokens (report), 0.26s, 100% accuracy
     \resumeProjectHeading
       {\textbf{Tailor Swift} \href{https://github.com/minhkhoango/Tailor-Swift}{\underline{(Github)}} $|$ \emph{Python, Claude Code, LaTeX}}{May 2026 -- Present}
       \resumeItemListStart
@@ -200,14 +175,11 @@
         \resumeItem{Constructed a 92-test pytest suite (1.1s) over agent python scripts}
       \resumeItemListEnd
     
-    %=== LOCAL LENS -- Dec 2025 -- Present ===
     % @key: local_lens
-    % Repo: github.com/minhkhoango/local-lens | AI helper: Claude Code
-    % Default \emph{} stack: TypeScript, PaddleOCR, React
-    % Other defensible stack: ONNX Runtime Web, Vite, Vitest, Playwright, WebGPU,
-    %   AWS, JavaScript, HTML/CSS
+    % Repo: github.com/minhkhoango/local-lens
+    % TechStack: TypeScript, React.js, Node.js, PaddleOCR.js, Vite, JavaScript, HTML/CSS, MV3, Turndown, WebGPU, Prettier, Vitest, Playwright
     \resumeProjectHeading
-      {\textbf{Local Lens} \href{https://github.com/minhkhoango/local-lens}{\underline{(Github)}} $|$ \emph{TypeScript, PaddleOCR, React}}{Dec 2025 -- June 2026}
+      {\textbf{Local Lens} \href{https://github.com/minhkhoango/local-lens}{\underline{(Github)}} $|$ \emph{TypeScript, PaddleOCR, React.js}}{Dec 2025 -- June 2026}
       \resumeItemListStart
         \resumeItem{Shipped a Chrome extension with 290+ installs, 60 weekly active users, and a 5-star average rating that performs 100\% client-side OCR from bundled models}
         \resumeItem{Implemented a dual-engine OCR pipeline using a 20 MB model for plain-text extraction (3--10 seconds) and a 146 MB model for tables and bold text extraction (18--47 seconds)}
@@ -216,33 +188,29 @@
         \resumeItem{Built the extension UI in React 19 and TypeScript 5.9 (taking 90\% of codebase)}
       \resumeItemListEnd
 
-    %=== P4-STACK -- Oct 2025 -- Dec 2025 ===
     % @key: p4_stack
-    % Repo: github.com/minhkhoango/p4-stack | AI helper: Cursor
-    % Default \emph{} stack: Python, Typer, Perforce
+    % Repo: github.com/minhkhoango/p4-stack
+    % TechStack: Python, Typer, P4python, Poetry, Rich, Click, Pygments, Shellingham, Pytest
     \resumeProjectHeading
-      {\textbf{P4-stack} \href{https://github.com/minhkhoango/p4-stack}{\underline{(Github)}} $|$ \emph{Python, Typer, Perforce}}{Oct 2025 -- Dec 2025}
+      {\textbf{P4-stack} \href{https://github.com/minhkhoango/p4-stack}{\underline{(Github)}} $|$ \emph{Python, Typer, P4python}}{Oct 2025 -- Dec 2025}
       \resumeItemListStart
         \resumeItem{Engineered a stacked-diff workflow CLI for Perforce that cut merge conflict resolution from 10 minutes to 5 seconds by integrating the 3-way diff3 merge algorithm}
         \resumeItem{Enabled engineers to split 1000+ line code changelists into reviewable diffs with automated dependency tracking}
       \resumeItemListEnd
 
-    %=== PR PILOT -- Sep 2025 -- Oct 2025 ===
     % @key: pr_pilot
-    % Repo: github.com/minhkhoango/pr-pilot | AI helper: GitHub Copilot
-    % Default \emph{} stack: Python, GitHub Actions, Google Gemini API
-    % Other defensible stack: Docker, Pydantic, TypedDict, REST API, YAML, Poetry, Bash
+    % Repo: github.com/minhkhoango/pr-pilot
+    % TechStack: Python, Shell/Bash, Dockerfile, GitHub Actions, Gemini API, Poetry, Black
     \resumeProjectHeading
-      {\textbf{PR Pilot} \href{https://github.com/minhkhoango/pr-pilot}{\underline{(Github)}} $|$ \emph{Python, GitHub Actions, Google Gemini API}}{Sep 2025 -- Oct 2025}
+      {\textbf{PR Pilot} \href{https://github.com/minhkhoango/pr-pilot}{\underline{(Github)}} $|$ \emph{Python, GitHub Actions, Gemini API}}{Sep 2025 -- Oct 2025}
       \resumeItemListStart
         \resumeItem{Built a GitHub Action that automates pull-request review in 30 seconds by feeding git diff output into Gemini 2.5 Flash Lite and posting PR summaries via the GitHub REST API}
         \resumeItem{Validated by cold-emailing 100 engineers traced from a 257-point Hacker News thread, surfacing feedback that commits should stay human-authored}
       \resumeItemListEnd
 
-    %=== AUTOLY -- May 2025 -- Jul 2025 ===
     % @key: autoly
-    % Repo: github.com/minhkhoango/AutoLy | AI helper: Cursor
-    % Default \emph{} stack: Python, NiceGUI, SQLite
+    % Repo: github.com/minhkhoango/AutoLy
+    % TechStack: Python, NiceGUI, Uvicorn, Gunicorn, Passlib, bcrypt, PyMuPDF, HTML, Shell, SQLite
     \resumeProjectHeading
       {\textbf{Autoly} \href{https://github.com/minhkhoango/AutoLy}{\underline{(Github)}} $|$ \emph{Python, NiceGUI, SQLite}}{May 2025 -- Jul 2025}
       \resumeItemListStart
@@ -254,21 +222,32 @@
   \resumeSubHeadingListEnd
 
 %-----------TECHNICAL SKILLS-----------
-% Rebuild per-JD from references/keywords.md: drop irrelevant skills, reorder
-% JD-relevant first, rename/add categories (e.g. "Hardware", "Backend", "Data",
-% "Frontend & Browser"), insert EXACT JD keyword matches.
-% Output may use UP TO 5 category rows (not limited to these 4).
-% Hard limit: each row must fit on ONE rendered line.
 \section{Technical Skills}
  \begin{itemize}[leftmargin=0.15in, label={}]
     \small{\item{
-     \textbf{Languages}{: Python, JavaScript, TypeScript, C++, SQL, HTML/CSS, Bash} \\
-     \textbf{AI/ML}{: PyTorch, Scikit-learn, Claude API, LLM, RAG, Machine Learning, Neural Networks} \\
-     \textbf{Frameworks \& Libraries}{: FastAPI, React, Svelte, Node.js, Pandas, NumPy} \\
-     \textbf{Software Engineering}{: REST APIs, OOP, WebSocket, Error Handling, Software Testing, CI/CD} \\
-     \textbf{Developer Tools}{: Git, Linux, Docker, AWS, Azure, Google Colab} \\
+     \textbf{Languages}{: Python, JavaScript, TypeScript, C++, SQL, HTML/CSS, Bash, Verilog, SystemVerilog} \\
+     \textbf{Frameworks}{: React.js, Svelte, Node.js, FastAPI, NiceGUI, Vite, Manifest V3, Service Workers, WebGPU, WASM, REST API, WebSocket} \\
+     \textbf{Developer Tools}{: Git, Linux, Docker, GitHub Actions, AWS, Azure, Google Cloud, Jupyter, Google Colab, pytest, Playwright, Vitest, Poetry} \\
+     \textbf{Libraries}{: PyTorch, scikit-learn, PaddleOCR, ONNX, sentence-transformers, Pandas, NumPy, Matplotlib, Seaborn, Pydantic, Typer, SQLite, Claude API, OpenAI API, Gemini API} \\
     }}
  \end{itemize}
+
+%-----------KEYWORD LEDGER (sits below Technical Skills; all comment -- inert to pdflatex)-----------
+%==============================================================================
+% KEYWORD LEDGER
+% Pull EXACT ALLOWED strings (concrete tech first; concrete beats vague domain).
+% Anything in FORBIDDEN never goes on the page. All comment -- inert to pdflatex.
+% Four page categories only: Languages, Frameworks, Developer Tools, Libraries.
+% The four ALLOWED <category> palettes are mirrored at runtime from the
+% \section{Technical Skills} rows above (digest.keyword_ledger) -- edit them THERE,
+% this block holds only what Technical Skills does not:
+% ALLOWED Baseline (universal -- only to fill leftover skill-row space): Microsoft Office, Word, Excel, PowerPoint, Microsoft 365, Google Workspace, Windows
+% ALLOWED Hardware (domain palette -- only if the JD asks): FPGA, Intel Cyclone V, Digital Logic
+% Soft/domain (GATE -- max 1-2 across ALL rows, only if the JD repeats the exact phrase): Quantitative Finance, Time Series Analysis, Algorithmic Trading
+% FORBIDDEN tech not touched: Java, Kubernetes, Rust, Go, .NET, Angular, Vue, Solana, Spring, RAG
+% FORBIDDEN scale words: large-scale, production-grade, high-throughput, enterprise-grade
+% FORBIDDEN buzzwords: spearheaded, leveraged, owned, world-class, 10x, best-in-class, synergize
+%==============================================================================
 
 %-------------------------------------------
 \end{document}

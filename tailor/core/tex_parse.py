@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # --------------------------------------------------------------------------- #
@@ -184,10 +184,8 @@ class Block:
     heading: str              # the \resumeSubheading / \resumeProjectHeading verbatim
     heading_args: list[str]   # brace-matched inner of each heading arg
     bullets: list[str]        # raw \resumeItem bodies, in master order (1-based to caller)
-    stack_comments: list[str] = field(default_factory=list[str])  # "% Default/Other ... stack:"
 
 
-_HEADER_RE = re.compile(r"^\s*%===.*?===\s*$", re.MULTILINE)
 _KEY_RE = re.compile(r"^\s*%\s*@key:\s*(\S+)\s*$", re.MULTILINE)
 _HEADING_CMDS = (("\\resumeSubheading", 4, "experience"),
                  ("\\resumeProjectHeading", 2, "project"))
@@ -217,25 +215,20 @@ def _extract_command(text: str, cmd: str, n_args: int) -> tuple[str, list[str]] 
 def parse_master(master_tex: str) -> dict[str, Block]:
     """Parse master_resume.tex into {key: Block} using the `% @key:` contract.
 
-    Each block spans from its ``%=== ... ===`` header to the next such header
-    (or EOF). Within that region we extract the single heading command and the
-    ordered \\resumeItem bullets -- trailing section/list frames carry neither,
-    so the region bound is safe.
+    Each block spans from its ``% @key: <name>`` marker to the next such marker
+    (or EOF) -- the marker itself is the block delimiter, so the master needs no
+    per-block banner. Within that region we extract the single heading command and
+    the ordered \\resumeItem bullets; the trailing Technical Skills / KEYWORD
+    LEDGER frame carries neither heading nor bullets, so the final region bound is
+    safe even though it runs to EOF.
     """
-    headers = list(_HEADER_RE.finditer(master_tex))
+    keys = list(_KEY_RE.finditer(master_tex))
     blocks: dict[str, Block] = {}
-    for idx, h in enumerate(headers):
-        region_start = h.end()
-        region_end = headers[idx + 1].start() if idx + 1 < len(headers) else len(master_tex)
-        region = master_tex[region_start:region_end]
-
-        km = _KEY_RE.search(region)
-        if not km:
-            continue
+    for idx, km in enumerate(keys):
         key = km.group(1)
-
-        stack_comments = [ln.strip() for ln in region.splitlines()
-                          if re.match(r"\s*%\s*(Default|Other).*stack", ln)]
+        region_start = km.end()
+        region_end = keys[idx + 1].start() if idx + 1 < len(keys) else len(master_tex)
+        region = master_tex[region_start:region_end]
 
         clean = strip_tex_comments(region)
         heading = ""
@@ -250,6 +243,5 @@ def parse_master(master_tex: str) -> dict[str, Block]:
         if not kind:
             continue
 
-        blocks[key] = Block(key, kind, heading, heading_args,
-                            resume_items(clean), stack_comments)
+        blocks[key] = Block(key, kind, heading, heading_args, resume_items(clean))
     return blocks

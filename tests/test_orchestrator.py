@@ -23,6 +23,7 @@ import pytest
 import tailor
 from tailor import run, tailor_one, why
 from tailor.core import capture
+from tailor.core.assemble_resume import SlotsData
 from tailor.core.chain import Report
 from tailor.llm import Slots, Why
 from tailor.log import RunLogger
@@ -85,10 +86,10 @@ class FakeChain:
 
     def __init__(self, reports: list[Report], write_files: bool = True) -> None:
         self._q = list(reports)
-        self.calls: list[tuple[str, dict[str, Any], Path]] = []
+        self.calls: list[tuple[str, dict[str, object], Path]] = []
         self._write = write_files
 
-    def __call__(self, stem: str, slots_data: dict[str, Any], work_dir: Path) -> Report:
+    def __call__(self, stem: str, slots_data: SlotsData, work_dir: Path) -> Report:
         self.calls.append((stem, dict(slots_data), Path(work_dir)))
         wd = Path(work_dir)
         if self._write:
@@ -119,7 +120,7 @@ def read_events(path: Path) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# The cap-3 fix-up loop
+# The capped fix-up loop
 # --------------------------------------------------------------------------- #
 def test_loop_converges_then_ships(monkeypatch, tmp_path):
     out, scr, ds, _ = redirect_paths(monkeypatch, tmp_path)
@@ -150,7 +151,7 @@ def test_cap3_accepts_underfull(monkeypatch, tmp_path):
     report = tailor_one("acme", "JD", llm, chain, log)
     log.close()
 
-    assert report.passes == 3          # hit the cap (never reached OK)
+    assert report.passes == tailor.MAX_PASSES   # hit the cap (never reached OK)
     assert not report.ok
     assert report.shippable            # UNDERFULL still ships
     assert (out / "acme" / "resume.slots.json").exists()
@@ -168,7 +169,7 @@ def test_aborts_and_keeps_scratch_when_honesty_never_clears(monkeypatch, tmp_pat
     report = tailor_one("acme", "JD", llm, chain, log)
     log.close()
 
-    assert report.passes == 3
+    assert report.passes == tailor.MAX_PASSES
     assert not report.shippable
     assert not (out / "acme").exists()          # nothing shipped
     assert not (ds / "acme").exists()           # no baseline snapshot

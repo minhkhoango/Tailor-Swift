@@ -9,8 +9,7 @@ Layout (this file lives at ``<repo>/tailor/core/paths.py``)::
 
     <repo>/
       tailor/            the program (orchestrator + llm + core/)
-      assets/master_resume.tex
-      references/{honesty-rules,keywords,cover-letter}.md
+      assets/master_resume.tex         the pool + Technical Skills + keyword ledger
       jobDescription/<stem>.txt        JD inputs (gitignored)
       output/<stem>/                   shipped resume.slots.json + resume.pdf
       dataset/<stem>/                  frozen AI-baseline / human-final pairs
@@ -33,12 +32,7 @@ SCRATCH = REPO_ROOT / ".tailor_cache"
 LOGS = REPO_ROOT / "logs"
 
 ASSETS = REPO_ROOT / "assets"
-MASTER = ASSETS / "master_resume.tex"
-
-REFERENCES = REPO_ROOT / "references"
-HONESTY_RULES = REFERENCES / "honesty-rules.md"
-KEYWORDS = REFERENCES / "keywords.md"
-COVER_LETTER_REF = REFERENCES / "cover-letter.md"   # mined for the why-prompt bar (E2)
+MASTER = ASSETS / "master_resume.tex"   # pool + \section{Technical Skills} + % KEYWORD LEDGER
 
 VENV_PY = REPO_ROOT / ".venv" / "bin" / "python"
 

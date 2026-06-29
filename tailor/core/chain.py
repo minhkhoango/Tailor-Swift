@@ -12,29 +12,29 @@ in-flight passes; only the final accepted pass is copied to ``output/<stem>/``.
 
 HONESTY here is only the check an LLM self-audit reliably misses: every number in
 an output bullet must trace to a *selected* master block. The FORBIDDEN-tech /
-scale / buzzword rules are the model's checklist from ``honesty-rules.md`` -- not
-linted here. A tailored resume always carries exactly three projects; any other
-count yields a non-blocking ``structure: WARN`` (the fit verdict stays the gate).
+scale / buzzword rules are the model's checklist from the master's ``% KEYWORD
+LEDGER`` plus the ``SYSTEM_PROMPT`` golden rules -- not linted here. A tailored
+resume always carries exactly three projects; any other count yields a
+non-blocking ``structure: WARN`` (the fit verdict stays the gate).
 """
 
 from __future__ import annotations
 
 import contextlib
 import io
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
-
 from . import pdf_compile, tex_parse
+from .capture import pretty_slots_json
 from .assemble_resume import (
     AssembleError,
     Slots,
+    SlotsData,
     SlotsError,
     assemble_to,
     parse_slots,
 )
-from .check_resume_fit import analyze_dir
+from .check_resume_fit import FitDict, analyze_dir
 from .paths import MASTER, RESUME_JOBNAME, SLOTS_NAME
 
 # A tailored resume always carries exactly this many projects (golden rule).
@@ -99,7 +99,7 @@ def honesty_flags(work_dir: Path, slots: Slots) -> list[str]:
 
     One check: every number in an output bullet must trace to a master
     bullet/heading of a *selected* block. The rest of the honesty audit is the
-    model's, from honesty-rules.md.
+    model's, from the ``SYSTEM_PROMPT`` golden rules.
 
     Scoped to the EXPERIENCE marker onward -- Education lives in the preamble and
     carries static numbers (ICPC placement, year, team count) that are constants
@@ -139,14 +139,14 @@ def _compile(tex: Path, jobname: str, passes: int) -> tuple[bool, str]:
     return ok, buf.getvalue().strip()
 
 
-def _fit_flags(fit: dict[str, Any]) -> list[str]:
+def _fit_flags(fit: FitDict) -> list[str]:
     """Pull the actionable lines (spillover FLAGs, skill WRAPs, notes) out of a
     fit report's human text -- everything after the headline line."""
     text = str(fit.get("text", ""))
     return [ln.strip() for ln in text.splitlines()[1:] if ln.strip()]
 
 
-def run_chain(stem: str, slots_data: dict[str, Any], work_dir: Path) -> Report:
+def run_chain(stem: str, slots_data: SlotsData, work_dir: Path) -> Report:
     """Assemble + compile + measure + honesty-check ``slots_data`` in ``work_dir``.
 
     Writes the slot file, then runs the deterministic chain. A slot/assemble error
@@ -155,7 +155,7 @@ def run_chain(stem: str, slots_data: dict[str, Any], work_dir: Path) -> Report:
     the final accepted ``resume.slots.json`` + PDF in ``work_dir``.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
-    (work_dir / SLOTS_NAME).write_text(json.dumps(slots_data, indent=2), encoding="utf-8")
+    (work_dir / SLOTS_NAME).write_text(pretty_slots_json(slots_data), encoding="utf-8")
 
     try:
         slots = parse_slots(slots_data)
