@@ -48,6 +48,7 @@ dataset/
 .claude/commands
 .claude/hooks
 .claude/settings.json
+.claude/worktrees/
 # scrape-jobs skill: local browser profile + discovery dumps
 .claude/skills/scrape-jobs/.profile/
 .claude/skills/scrape-jobs/.debug/
